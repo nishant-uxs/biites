@@ -133,6 +133,8 @@ export const orders = pgTable("orders", {
   outletId: varchar("outlet_id").notNull().references(() => outlets.id),
   groupOrderId: varchar("group_order_id").references(() => groupOrders.id),
   status: varchar("status").notNull().default("placed"), // "placed", "preparing", "ready", "completed", "cancelled"
+  paymentMethod: varchar("payment_method").notNull().default("cash"), // "cash" or "upi"
+  paymentStatus: varchar("payment_status").notNull().default("pending"), // "pending", "completed"
   totalAmount: integer("total_amount").notNull(),
   specialInstructions: text("special_instructions"),
   estimatedReadyTime: timestamp("estimated_ready_time"),
@@ -147,6 +149,7 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   completedAt: true,
   qrCode: true,
   status: true,
+  paymentStatus: true,
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
