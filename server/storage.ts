@@ -35,8 +35,10 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: { email: string; password: string; firstName?: string; lastName?: string; role?: string }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserTokens(userId: string, tokens: number): Promise<void>;
   updateUserUniversity(userId: string, universityId: string): Promise<void>;
@@ -102,6 +104,26 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(userData: { email: string; password: string; firstName?: string; lastName?: string; role?: string }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: userData.email,
+        password: userData.password,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+        role: userData.role || "student",
+        tokens: 0,
+      })
+      .returning();
+    return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {

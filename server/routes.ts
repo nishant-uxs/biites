@@ -1,14 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./localAuth";
 
 // Role-based middleware
 const isAppAdmin = async (req: any, res: any, next: any) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  const user = await storage.getUser(req.user.claims.sub);
+  const user = await storage.getUser(req.user.id);
   if (user?.role !== "app_admin") {
     return res.status(403).json({ message: "Forbidden: App admin access required" });
   }
@@ -20,7 +20,7 @@ const isUniversityAdmin = async (req: any, res: any, next: any) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  const user = await storage.getUser(req.user.claims.sub);
+  const user = await storage.getUser(req.user.id);
   if (user?.role !== "university_admin" && user?.role !== "app_admin") {
     return res.status(403).json({ message: "Forbidden: University admin access required" });
   }
@@ -32,7 +32,7 @@ const isOutletOwner = async (req: any, res: any, next: any) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  const user = await storage.getUser(req.user.claims.sub);
+  const user = await storage.getUser(req.user.id);
   if (user?.role !== "outlet_owner" && user?.role !== "app_admin") {
     return res.status(403).json({ message: "Forbidden: Outlet owner access required" });
   }
@@ -48,7 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -59,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/auth/user/university', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { universityId } = req.body;
       
       const user = await storage.getUser(userId);

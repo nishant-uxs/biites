@@ -1,13 +1,18 @@
 import { db } from "./db";
 import { users, universities, outlets, dishes, rewards, challenges, badges } from "@shared/schema";
+import bcrypt from "bcrypt";
 
 async function seed() {
   console.log("🌱 Starting database seed...");
 
+  // Hash the default password: password123
+  const defaultPassword = await bcrypt.hash("password123", 10);
+  console.log("✅ Password hashed");
+
   try {
     // Create Universities
     console.log("Creating universities...");
-    const [iitDelhi, bitsPilani, duNorthCampus] = await db
+    await db
       .insert(universities)
       .values([
         {
@@ -29,8 +34,13 @@ async function seed() {
           imageUrl: null,
         },
       ])
-      .onConflictDoNothing()
-      .returning();
+      .onConflictDoNothing();
+
+    // Fetch universities to get IDs
+    const allUniversities = await db.select().from(universities);
+    const iitDelhi = allUniversities.find(u => u.code === "IIT-DEL");
+    const bitsPilani = allUniversities.find(u => u.code === "BITS-PIL");
+    const duNorthCampus = allUniversities.find(u => u.code === "DU-NC");
 
     const iitDelhiId = iitDelhi?.id;
     const bitsPilaniId = bitsPilani?.id;
@@ -42,8 +52,9 @@ async function seed() {
       .insert(users)
       .values({
         id: "app-admin",
-        email: "admin@campusbiites.com",
-        firstName: "Super",
+        email: "admin@test.com",
+        password: defaultPassword,
+        firstName: "App",
         lastName: "Admin",
         role: "app_admin",
         universityId: null,
@@ -59,7 +70,8 @@ async function seed() {
       .values([
         {
           id: "iit-admin",
-          email: "admin@iitdelhi.ac.in",
+          email: "universityadmin@test.com",
+          password: defaultPassword,
           firstName: "IIT Delhi",
           lastName: "Admin",
           role: "university_admin",
@@ -68,7 +80,8 @@ async function seed() {
         },
         {
           id: "bits-admin",
-          email: "admin@bits-pilani.ac.in",
+          email: "bits.admin@test.com",
+          password: defaultPassword,
           firstName: "BITS Pilani",
           lastName: "Admin",
           role: "university_admin",
@@ -86,7 +99,8 @@ async function seed() {
       .values([
         {
           id: "owner-1",
-          email: "owner1@iitdelhi.ac.in",
+          email: "outletowner@test.com",
+          password: defaultPassword,
           firstName: "Canteen",
           lastName: "Owner",
           role: "outlet_owner",
@@ -95,7 +109,8 @@ async function seed() {
         },
         {
           id: "owner-2",
-          email: "owner2@iitdelhi.ac.in",
+          email: "owner2@test.com",
+          password: defaultPassword,
           firstName: "Mess",
           lastName: "Manager",
           role: "outlet_owner",
@@ -104,7 +119,8 @@ async function seed() {
         },
         {
           id: "owner-3",
-          email: "owner3@bits-pilani.ac.in",
+          email: "owner3@test.com",
+          password: defaultPassword,
           firstName: "Cafe",
           lastName: "Manager",
           role: "outlet_owner",
@@ -114,6 +130,21 @@ async function seed() {
       ])
       .onConflictDoNothing()
       .returning();
+
+    // Create Test Student
+    console.log("Creating test student...");
+    await db
+      .insert(users)
+      .values({
+        email: "student@test.com",
+        password: defaultPassword,
+        firstName: "Test",
+        lastName: "Student",
+        role: "student",
+        universityId: null, // Will select university on first login
+        tokens: 50,
+      })
+      .onConflictDoNothing();
 
     const owner1Id = outletOwner1?.id || "owner-1";
     const owner2Id = outletOwner2?.id || "owner-2";
