@@ -37,10 +37,8 @@ export default function Home() {
 
   const updateUniversityMutation = useMutation({
     mutationFn: async (universityId: string) => {
-      return await apiRequest("/api/auth/user/university", {
-        method: "PATCH",
-        body: JSON.stringify({ universityId }),
-      });
+      const response = await apiRequest("PATCH", "/api/auth/user/university", { universityId });
+      return response.json();
     },
     onSuccess: () => {
       toast({
