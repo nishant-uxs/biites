@@ -1,0 +1,56 @@
+Campus Biites
+🍔 Campus Food Ordering App – Advanced & Smart Ecosystem
+🧩 Smart, Budget-Aware & Personalized Experience
+Budget Filter: User input kare (e.g., ₹100), app automatically recommend kare outlets aur dishes within that budget.
+Trending Items: Display daily, weekly, and monthly top-selling dishes on the home screen.
+Personalized Suggestions: Based on past orders, favorite cuisines, and spending habits.
+Extra Smart Add-ons: While placing an order (e.g., sandwich), system suggests perfect pairings like cold coffee, fries, or brownie combo using AI-based meal pairing logic.
+Comfort Food Section: A personalized tab showing each user’s favorite / frequently ordered dishes for quick access.
+Nutrition Meter: Displays calories, protein, carbs, and sugar content for every dish to promote mindful eating.
+🧾 Customizable Order & Payment Flexibility
+Special Instructions: Users can add custom notes for outlets — e.g., “No onion,” “Extra cheese,” “Less spicy,” etc.
+Split Payment System:
+40% Prepaid during order placement (wallet/UPI/card).
+60% payable on pickup (cash or online).
+Builds trust between outlets and users while reducing cancellation risks.
+Order Editing Window: Users can edit or cancel within a short window (e.g., 2 minutes) before preparation begins.
+⏱️ Real-Time Order Flow & Operational Efficiency
+Order Placement: Student selects items, adds special instructions, and makes 40% payment.
+Smart Queue Time Predictor: AI estimates preparation + waiting time based on outlet load and shows ETA before confirmation.
+Outlet Notification: Order instantly reflects on outlet dashboard.
+Chilling Period (Outlet Cooldown Mode):
+When an outlet receives a threshold number of orders (e.g., 10 active), it automatically enters a short “chill period.”
+During this time, new orders are temporarily paused or queued to allow the outlet to finish existing ones smoothly.
+Users see a notice like “Outlet is preparing existing orders — will reopen in 5 mins.”
+Prevents overload, ensures faster delivery & quality control.
+Preparation Tracking: Outlet updates order status — Preparing → Ready.
+Pickup Verification:
+App generates a QR code for the order.
+Outlet scans QR to confirm pickup and collect remaining payment.
+👥 Group Order Mode (Team Treat Feature)
+Users can create a shared order link and invite friends.
+Each friend adds their own items from the same outlet.
+App automatically splits the total bill for easy payment coordination.
+Perfect for class breaks, team lunches, and birthday treats.
+Optionally, one user can show a Group Pickup QR for all combined orders.
+⭐ Rating, Loyalty & Reward Ecosystem
+Post-Meal Rating: Users rate dishes and outlets.
+Token System: Every rating earns tokens.
+Reward Wheel: After earning tokens, users can spin the wheel to win:
+Outlet discounts
+Free sides / beverages
+Exclusive offers
+Referral Bonus: Invite friends and earn tokens or free add-ons.
+🎮 Gamified Campus Engagement
+Daily & Weekly Challenges: “Order from 3 different outlets this week to earn bonus tokens.”
+Leaderboard: Displays top users, reviewers, and spenders.
+Achievement Badges:
+🥇 First Bite — first order
+💰 Budget Master — consistent under-budget orders
+🔥 5-Star Streak — multiple 5★ reviews
+👥 Group Champ — frequent group orders
+🛠️ Outlet Dashboard Features
+Order Queue Management: View incoming, ongoing, and completed orders.
+Smart Chilling Control: Outlet can manually trigger or adjust chill period duration if overloaded.
+Sales & Analytics Panel: See daily/weekly/monthly performance stats.
+Top Rated Dishes: Auto-highlighted from student feedback.
