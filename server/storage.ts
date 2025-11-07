@@ -1,5 +1,6 @@
 import {
   users,
+  universities,
   outlets,
   dishes,
   orders,
@@ -13,6 +14,8 @@ import {
   userBadges,
   type User,
   type UpsertUser,
+  type University,
+  type InsertUniversity,
   type Outlet,
   type InsertOutlet,
   type Dish,
@@ -36,9 +39,15 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserTokens(userId: string, tokens: number): Promise<void>;
+  updateUserUniversity(userId: string, universityId: string): Promise<void>;
+  
+  // University operations
+  getUniversities(): Promise<University[]>;
+  getUniversity(id: string): Promise<University | undefined>;
+  createUniversity(university: InsertUniversity): Promise<University>;
   
   // Outlet operations
-  getOutlets(): Promise<Outlet[]>;
+  getOutlets(universityId?: string): Promise<Outlet[]>;
   getOutlet(id: string): Promise<Outlet | undefined>;
   createOutlet(outlet: InsertOutlet): Promise<Outlet>;
   updateOutletChillPeriod(id: string, isChillPeriod: boolean, endsAt?: Date): Promise<void>;
@@ -124,9 +133,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
+  async updateUserUniversity(userId: string, universityId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ universityId, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  // ===== UNIVERSITY OPERATIONS =====
+  
+  async getUniversities(): Promise<University[]> {
+    return await db.select().from(universities).orderBy(universities.name);
+  }
+
+  async getUniversity(id: string): Promise<University | undefined> {
+    const [university] = await db.select().from(universities).where(eq(universities.id, id));
+    return university || undefined;
+  }
+
+  async createUniversity(universityData: InsertUniversity): Promise<University> {
+    const [university] = await db
+      .insert(universities)
+      .values(universityData)
+      .returning();
+    return university;
+  }
+
   // ===== OUTLET OPERATIONS =====
   
-  async getOutlets(): Promise<Outlet[]> {
+  async getOutlets(universityId?: string): Promise<Outlet[]> {
+    if (universityId) {
+      return await db
+        .select()
+        .from(outlets)
+        .where(eq(outlets.universityId, universityId))
+        .orderBy(desc(outlets.rating));
+    }
     return await db.select().from(outlets).orderBy(desc(outlets.rating));
   }
 

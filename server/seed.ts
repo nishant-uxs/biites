@@ -1,26 +1,123 @@
 import { db } from "./db";
-import { users, outlets, dishes, rewards, challenges, badges } from "@shared/schema";
+import { users, universities, outlets, dishes, rewards, challenges, badges } from "@shared/schema";
 
 async function seed() {
   console.log("🌱 Starting database seed...");
 
   try {
-    // Create System User (for demo outlets)
-    console.log("Creating system user...");
-    const [systemUser] = await db
+    // Create Universities
+    console.log("Creating universities...");
+    const [iitDelhi, bitsPilani, duNorthCampus] = await db
+      .insert(universities)
+      .values([
+        {
+          name: "IIT Delhi",
+          location: "Hauz Khas, New Delhi",
+          code: "IIT-DEL",
+          imageUrl: null,
+        },
+        {
+          name: "BITS Pilani",
+          location: "Pilani, Rajasthan",
+          code: "BITS-PIL",
+          imageUrl: null,
+        },
+        {
+          name: "Delhi University - North Campus",
+          location: "North Campus, Delhi",
+          code: "DU-NC",
+          imageUrl: null,
+        },
+      ])
+      .onConflictDoNothing()
+      .returning();
+
+    const iitDelhiId = iitDelhi?.id;
+    const bitsPilaniId = bitsPilani?.id;
+    const duNorthCampusId = duNorthCampus?.id;
+
+    // Create App Admin
+    console.log("Creating app admin...");
+    const [appAdmin] = await db
       .insert(users)
       .values({
-        id: "system",
-        email: "system@campusbiites.com",
-        firstName: "Campus",
-        lastName: "Biites",
-        role: "outlet_owner",
+        id: "app-admin",
+        email: "admin@campusbiites.com",
+        firstName: "Super",
+        lastName: "Admin",
+        role: "app_admin",
+        universityId: null,
         tokens: 0,
       })
       .onConflictDoNothing()
       .returning();
 
-    const systemUserId = systemUser?.id || "system";
+    // Create University Admins
+    console.log("Creating university admins...");
+    const [iitAdmin, bitsAdmin] = await db
+      .insert(users)
+      .values([
+        {
+          id: "iit-admin",
+          email: "admin@iitdelhi.ac.in",
+          firstName: "IIT Delhi",
+          lastName: "Admin",
+          role: "university_admin",
+          universityId: iitDelhiId,
+          tokens: 0,
+        },
+        {
+          id: "bits-admin",
+          email: "admin@bits-pilani.ac.in",
+          firstName: "BITS Pilani",
+          lastName: "Admin",
+          role: "university_admin",
+          universityId: bitsPilaniId,
+          tokens: 0,
+        },
+      ])
+      .onConflictDoNothing()
+      .returning();
+
+    // Create Outlet Owners
+    console.log("Creating outlet owners...");
+    const [outletOwner1, outletOwner2, outletOwner3] = await db
+      .insert(users)
+      .values([
+        {
+          id: "owner-1",
+          email: "owner1@iitdelhi.ac.in",
+          firstName: "Canteen",
+          lastName: "Owner",
+          role: "outlet_owner",
+          universityId: iitDelhiId,
+          tokens: 0,
+        },
+        {
+          id: "owner-2",
+          email: "owner2@iitdelhi.ac.in",
+          firstName: "Mess",
+          lastName: "Manager",
+          role: "outlet_owner",
+          universityId: iitDelhiId,
+          tokens: 0,
+        },
+        {
+          id: "owner-3",
+          email: "owner3@bits-pilani.ac.in",
+          firstName: "Cafe",
+          lastName: "Manager",
+          role: "outlet_owner",
+          universityId: bitsPilaniId,
+          tokens: 0,
+        },
+      ])
+      .onConflictDoNothing()
+      .returning();
+
+    const owner1Id = outletOwner1?.id || "owner-1";
+    const owner2Id = outletOwner2?.id || "owner-2";
+    const owner3Id = outletOwner3?.id || "owner-3";
 
     // Create Outlets
     console.log("Creating outlets...");
@@ -31,7 +128,8 @@ async function seed() {
           name: "North Campus Canteen",
           description: "Your go-to spot for delicious Indian meals at student-friendly prices",
           imageUrl: null,
-          ownerId: systemUserId,
+          ownerId: owner1Id,
+          universityId: iitDelhiId!,
           rating: "4.5",
           totalRatings: 150,
           averagePrice: 80,
@@ -43,7 +141,8 @@ async function seed() {
           name: "South Block Mess",
           description: "Hearty meals and quick bites for students on the go",
           imageUrl: null,
-          ownerId: systemUserId,
+          ownerId: owner2Id,
+          universityId: iitDelhiId!,
           rating: "4.2",
           totalRatings: 98,
           averagePrice: 60,
@@ -55,7 +154,8 @@ async function seed() {
           name: "Campus Cafe",
           description: "Premium coffee and snacks in a cozy ambiance",
           imageUrl: null,
-          ownerId: systemUserId,
+          ownerId: owner3Id,
+          universityId: bitsPilaniId!,
           rating: "4.7",
           totalRatings: 220,
           averagePrice: 120,

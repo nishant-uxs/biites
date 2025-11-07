@@ -97,6 +97,7 @@ export default function Profile() {
             {userBadges.length > 0 ? (
               <div className="grid grid-cols-3 gap-4">
                 {userBadges.map(({ badge, earnedAt }) => {
+                  if (!badge) return null;
                   const IconComponent = badgeIcons[badge.icon] || Trophy;
                   return (
                     <div key={badge.id} className="text-center space-y-2">

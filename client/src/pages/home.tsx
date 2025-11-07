@@ -1,23 +1,75 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BudgetFilter } from "@/components/budget-filter";
 import { OutletCard } from "@/components/outlet-card";
 import { DishCard } from "@/components/dish-card";
-import { TrendingUp, Heart, LogOut } from "lucide-react";
-import type { Outlet, Dish } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { TrendingUp, Heart, LogOut, Building2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import type { Outlet, Dish, University } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [budget, setBudget] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'trending' | 'comfort'>('trending');
+  const [selectedUniversityId, setSelectedUniversityId] = useState<string>("");
+
+  // Show university selection if user doesn't have one
+  const showUniversityDialog = user && user.role === "student" && !user.universityId;
+
+  // Fetch universities
+  const { data: universities = [] } = useQuery<University[]>({
+    queryKey: ['/api/universities'],
+  });
 
   // Fetch outlets
   const { data: outlets, isLoading: outletsLoading } = useQuery<(Outlet & { dishCount: number })[]>({
     queryKey: ['/api/outlets'],
   });
+
+  const updateUniversityMutation = useMutation({
+    mutationFn: async (universityId: string) => {
+      return await apiRequest("/api/auth/user/university", {
+        method: "PATCH",
+        body: JSON.stringify({ universityId }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Welcome!",
+        description: "University selected successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/outlets'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleUniversitySelect = () => {
+    if (!selectedUniversityId) {
+      toast({
+        title: "Error",
+        description: "Please select a university",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateUniversityMutation.mutate(selectedUniversityId);
+  };
 
   // Fetch trending dishes
   const { data: trendingDishes } = useQuery<(Dish & { outletName: string })[]>({
@@ -43,6 +95,49 @@ export default function Home() {
 
   return (
     <div className="min-h-screen pb-20">
+      {/* University Selection Dialog */}
+      <Dialog open={showUniversityDialog} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary" />
+              Select Your University
+            </DialogTitle>
+            <DialogDescription>
+              Choose your campus to see relevant food outlets
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Label htmlFor="university">University</Label>
+            <div className="space-y-2">
+              {universities.map((university) => (
+                <button
+                  key={university.id}
+                  data-testid={`button-university-${university.id}`}
+                  className={`w-full p-4 rounded-lg border-2 text-left transition-all hover-elevate ${
+                    selectedUniversityId === university.id
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border'
+                  }`}
+                  onClick={() => setSelectedUniversityId(university.id)}
+                >
+                  <h4 className="font-semibold">{university.name}</h4>
+                  <p className="text-sm text-muted-foreground">{university.location}</p>
+                </button>
+              ))}
+            </div>
+            <Button
+              className="w-full"
+              onClick={handleUniversitySelect}
+              disabled={updateUniversityMutation.isPending || !selectedUniversityId}
+              data-testid="button-confirm-university"
+            >
+              {updateUniversityMutation.isPending ? "Saving..." : "Continue"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-card border-b border-card-border">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between max-w-7xl">

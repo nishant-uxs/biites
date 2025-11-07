@@ -26,6 +26,25 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// ===== UNIVERSITY TABLES (Multi-tenancy) =====
+
+export const universities = pgTable("universities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  location: varchar("location").notNull(),
+  code: varchar("code").unique().notNull(), // e.g., "IIT-DEL", "BITS-PIL"
+  imageUrl: varchar("image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUniversitySchema = createInsertSchema(universities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUniversity = z.infer<typeof insertUniversitySchema>;
+export type University = typeof universities.$inferSelect;
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -33,10 +52,13 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   tokens: integer("tokens").default(0).notNull(), // Reward tokens
-  role: varchar("role").default("student").notNull(), // "student" or "outlet"
+  role: varchar("role").default("student").notNull(), // "app_admin", "university_admin", "outlet_owner", "student"
+  universityId: varchar("university_id").references(() => universities.id), // null for app_admin
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_users_university").on(table.universityId),
+]);
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -46,6 +68,7 @@ export type User = typeof users.$inferSelect;
 export const outlets = pgTable("outlets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ownerId: varchar("owner_id").notNull().references(() => users.id),
+  universityId: varchar("university_id").notNull().references(() => universities.id),
   name: varchar("name").notNull(),
   description: text("description"),
   imageUrl: varchar("image_url"),
@@ -57,7 +80,9 @@ export const outlets = pgTable("outlets", {
   activeOrdersCount: integer("active_orders_count").default(0).notNull(),
   maxActiveOrders: integer("max_active_orders").default(10).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_outlets_university").on(table.universityId),
+]);
 
 export const insertOutletSchema = createInsertSchema(outlets).omit({
   id: true,
@@ -281,7 +306,16 @@ export type UserBadge = typeof userBadges.$inferSelect;
 
 // ===== RELATIONS =====
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const universitiesRelations = relations(universities, ({ many }) => ({
+  users: many(users),
+  outlets: many(outlets),
+}));
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  university: one(universities, {
+    fields: [users.universityId],
+    references: [universities.id],
+  }),
   ownedOutlets: many(outlets),
   orders: many(orders),
   ratings: many(ratings),
@@ -294,6 +328,10 @@ export const outletsRelations = relations(outlets, ({ one, many }) => ({
   owner: one(users, {
     fields: [outlets.ownerId],
     references: [users.id],
+  }),
+  university: one(universities, {
+    fields: [outlets.universityId],
+    references: [universities.id],
   }),
   dishes: many(dishes),
   orders: many(orders),

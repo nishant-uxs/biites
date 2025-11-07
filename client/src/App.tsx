@@ -13,6 +13,8 @@ import Orders from "@/pages/orders";
 import Rewards from "@/pages/rewards";
 import Profile from "@/pages/profile";
 import OutletDetail from "@/pages/outlet-detail";
+import AdminDashboard from "@/pages/admin";
+import UniversityDashboard from "@/pages/university-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -38,6 +40,8 @@ function Router() {
           <Route path="/rewards" component={Rewards} />
           <Route path="/profile" component={Profile} />
           <Route path="/outlet/:id" component={OutletDetail} />
+          <Route path="/admin" component={AdminDashboard} />
+          <Route path="/university-dashboard" component={UniversityDashboard} />
         </>
       )}
       <Route component={NotFound} />

@@ -3,6 +3,43 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 
+// Role-based middleware
+const isAppAdmin = async (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  const user = await storage.getUser(req.user.claims.sub);
+  if (user?.role !== "app_admin") {
+    return res.status(403).json({ message: "Forbidden: App admin access required" });
+  }
+  req.dbUser = user;
+  next();
+};
+
+const isUniversityAdmin = async (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  const user = await storage.getUser(req.user.claims.sub);
+  if (user?.role !== "university_admin" && user?.role !== "app_admin") {
+    return res.status(403).json({ message: "Forbidden: University admin access required" });
+  }
+  req.dbUser = user;
+  next();
+};
+
+const isOutletOwner = async (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  const user = await storage.getUser(req.user.claims.sub);
+  if (user?.role !== "outlet_owner" && user?.role !== "app_admin") {
+    return res.status(403).json({ message: "Forbidden: Outlet owner access required" });
+  }
+  req.dbUser = user;
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -20,11 +57,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/auth/user/university', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { universityId } = req.body;
+      
+      const user = await storage.getUser(userId);
+      
+      // Security: Only students can set university, and only once
+      if (user?.role !== "student") {
+        return res.status(403).json({ message: "Only students can select university" });
+      }
+      
+      if (user.universityId) {
+        return res.status(403).json({ message: "University already set and cannot be changed" });
+      }
+      
+      // Validate university exists
+      const university = await storage.getUniversity(universityId);
+      if (!university) {
+        return res.status(404).json({ message: "Invalid university" });
+      }
+      
+      await storage.updateUserUniversity(userId, universityId);
+      const updatedUser = await storage.getUser(userId);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user university:", error);
+      res.status(500).json({ message: "Failed to update university" });
+    }
+  });
+
+  // ===== UNIVERSITY ROUTES =====
+  
+  app.get('/api/universities', async (req, res) => {
+    try {
+      const universities = await storage.getUniversities();
+      res.json(universities);
+    } catch (error) {
+      console.error("Error fetching universities:", error);
+      res.status(500).json({ message: "Failed to fetch universities" });
+    }
+  });
+
+  app.get('/api/universities/:id', async (req, res) => {
+    try {
+      const university = await storage.getUniversity(req.params.id);
+      if (!university) {
+        return res.status(404).json({ message: "University not found" });
+      }
+      res.json(university);
+    } catch (error) {
+      console.error("Error fetching university:", error);
+      res.status(500).json({ message: "Failed to fetch university" });
+    }
+  });
+
+  app.post('/api/admin/universities', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const university = await storage.createUniversity(req.body);
+      res.json(university);
+    } catch (error) {
+      console.error("Error creating university:", error);
+      res.status(500).json({ message: "Failed to create university" });
+    }
+  });
+
   // ===== OUTLET ROUTES =====
   
-  app.get('/api/outlets', async (req, res) => {
+  app.get('/api/outlets', isAuthenticated, async (req: any, res) => {
     try {
-      const outlets = await storage.getOutlets();
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Security: Users without university cannot access outlets
+      if (user?.role !== "app_admin" && !user?.universityId) {
+        return res.json([]); // Return empty array for students without university
+      }
+      
+      // Filter outlets by user's university (students only see their campus)
+      const universityId = user?.role === "app_admin" ? undefined : user?.universityId;
+      const outlets = await storage.getOutlets(universityId);
       
       // Add dish count for each outlet
       const outletsWithDishCount = await Promise.all(
@@ -44,12 +157,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/outlets/:id', async (req, res) => {
+  app.get('/api/outlets/:id', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
       const outlet = await storage.getOutlet(req.params.id);
       if (!outlet) {
         return res.status(404).json({ message: "Outlet not found" });
       }
+      
+      // Security: Verify user can access this outlet's university
+      if (user?.role !== "app_admin") {
+        if (!user?.universityId || outlet.universityId !== user.universityId) {
+          return res.status(403).json({ message: "Access denied to this outlet" });
+        }
+      }
+      
       res.json(outlet);
     } catch (error) {
       console.error("Error fetching outlet:", error);
@@ -57,12 +181,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/outlets', isAuthenticated, async (req: any, res) => {
+  app.post('/api/outlets', isAuthenticated, isUniversityAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const user = req.dbUser;
+      
+      // Security: Determine universityId based on role
+      let universityId: string | undefined;
+      
+      if (user.role === "app_admin") {
+        // App admin can create for any university, but must provide valid ID
+        universityId = req.body.universityId;
+        if (!universityId) {
+          return res.status(400).json({ message: "University ID required for app admin" });
+        }
+        // Validate university exists
+        const university = await storage.getUniversity(universityId);
+        if (!university) {
+          return res.status(404).json({ message: "Invalid university" });
+        }
+      } else if (user.role === "university_admin") {
+        // University admin can ONLY create for their own university
+        universityId = user.universityId;
+        if (!universityId) {
+          return res.status(400).json({ message: "University admin must have assigned university" });
+        }
+        // Reject any attempt to create for different university
+        if (req.body.universityId && req.body.universityId !== universityId) {
+          return res.status(403).json({ message: "Cannot create outlet for different university" });
+        }
+      } else {
+        return res.status(403).json({ message: "Invalid role for outlet creation" });
+      }
+      
       const outlet = await storage.createOutlet({
-        ...req.body,
-        ownerId: userId,
+        name: req.body.name,
+        description: req.body.description,
+        imageUrl: req.body.imageUrl || null,
+        averagePrice: req.body.averagePrice,
+        maxActiveOrders: req.body.maxActiveOrders || 10,
+        ownerId: req.body.ownerId || user.id,
+        universityId,
       });
       res.json(outlet);
     } catch (error) {
@@ -73,8 +231,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== DISH ROUTES =====
   
-  app.get('/api/outlets/:id/dishes', async (req, res) => {
+  app.get('/api/outlets/:id/dishes', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Security: Verify outlet belongs to user's university
+      const outlet = await storage.getOutlet(req.params.id);
+      if (!outlet) {
+        return res.status(404).json({ message: "Outlet not found" });
+      }
+      
+      if (user?.role !== "app_admin") {
+        if (!user?.universityId || outlet.universityId !== user.universityId) {
+          return res.status(403).json({ message: "Access denied to this outlet" });
+        }
+      }
+      
       const dishes = await storage.getDishes(req.params.id);
       res.json(dishes);
     } catch (error) {
