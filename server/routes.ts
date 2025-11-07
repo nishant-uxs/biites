@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/outlets', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       // Security: Users without university cannot access outlets
@@ -159,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/outlets/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       const outlet = await storage.getOutlet(req.params.id);
@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/outlets/:id/dishes', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       // Security: Verify outlet belongs to user's university
@@ -280,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/dishes/comfort', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const comfortFood = await storage.getUserComfortFood(userId, 10);
       
       // Add outlet name and order count
@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const orders = await storage.getUserOrders(userId);
       
       // Add outlet name and item count
@@ -353,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { items, specialInstructions, totalAmount, outletId, groupOrderId } = req.body;
       
       const order = await storage.createOrder(
@@ -400,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post('/api/group-orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const groupOrder = await storage.createGroupOrder({
         ...req.body,
         creatorId: userId,
@@ -429,7 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post('/api/ratings', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       await storage.createRating({
         ...req.body,
         userId,
@@ -455,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/rewards/spin', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const reward = await storage.spinRewardWheel(userId);
       res.json(reward);
     } catch (error: any) {
@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/rewards/claims', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const claims = await storage.getUserRewardClaims(userId);
       res.json(claims);
     } catch (error) {
@@ -489,7 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/challenges/progress', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const progress = await storage.getUserChallengeProgress(userId);
       res.json(progress);
     } catch (error) {
@@ -512,7 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/badges/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const userBadges = await storage.getUserBadges(userId);
       res.json(userBadges);
     } catch (error) {
@@ -537,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/outlet-dashboard/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get outlets owned by user
       const allOutlets = await storage.getOutlets();

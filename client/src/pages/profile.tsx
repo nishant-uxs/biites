@@ -127,7 +127,7 @@ export default function Profile() {
                       <div>
                         <p className="font-semibold text-sm">{badge.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(earnedAt).toLocaleDateString()}
+                          {earnedAt ? new Date(earnedAt).toLocaleDateString() : "Recently"}
                         </p>
                       </div>
                     </div>
