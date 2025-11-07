@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Filter outlets by user's university (students only see their campus)
       const universityId = user?.role === "app_admin" ? undefined : user?.universityId;
-      const outlets = await storage.getOutlets(universityId);
+      const outlets = await storage.getOutlets(universityId || undefined);
       
       // Add dish count for each outlet
       const outletsWithDishCount = await Promise.all(
