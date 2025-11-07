@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, Award, TrendingUp, Medal, Crown, Map, Star, Coins, Users } from "lucide-react";
+import { Trophy, Award, TrendingUp, Medal, Crown, Map, Star, Coins, Users, LogOut } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import type { Badge as BadgeType, UserBadge } from "@shared/schema";
 
 const badgeIcons: Record<string, React.ComponentType<any>> = {
@@ -44,12 +46,30 @@ export default function Profile() {
     return <span className="font-bold text-lg">{rank}</span>;
   };
 
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/auth/logout", {});
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-card border-b border-card-border">
-        <div className="container mx-auto px-4 py-4 max-w-3xl">
+        <div className="container mx-auto px-4 py-4 max-w-3xl flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Profile</h1>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleLogout}
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </header>
 

@@ -120,14 +120,15 @@ Preferred communication style: Simple, everyday language.
 ### Authentication & Authorization
 
 **Authentication Provider:**
-- Replit Auth (OpenID Connect) for seamless user authentication
-- Passport.js strategy for OAuth2/OIDC integration
+- Local username/password authentication (replaced Replit Auth)
+- Passport.js with passport-local strategy
+- bcrypt password hashing (10 salt rounds)
 - Session management via connect-pg-simple (PostgreSQL session store)
 
 **Session Management:**
 - 7-day session TTL with secure HTTP-only cookies
-- Automatic token refresh for Replit Auth
 - Session data stored in PostgreSQL `sessions` table
+- User password stored as bcrypt hash in users.password field
 
 **Authorization:**
 - **Multi-role access control**: app_admin, university_admin, outlet_owner, student
@@ -172,6 +173,20 @@ Preferred communication style: Simple, everyday language.
 - Enables real-time database connections
 
 ## Recent Changes (Nov 7, 2025)
+
+### Authentication System Migration ✅
+- Replaced Replit Auth with local username/password authentication
+- Added passport-local strategy with bcrypt password hashing
+- Created server/localAuth.ts with authentication middleware
+- Updated all route handlers to work with new auth structure (req.user.id instead of req.user.claims.sub)
+- Seeded test accounts for all 4 roles:
+  - admin@test.com (App Admin) - password: password123
+  - universityadmin@test.com (University Admin for IIT Delhi) - password: password123
+  - outletowner@test.com (Outlet Owner) - password: password123
+  - student@test.com (Student - no university selected) - password: password123
+- Created frontend login page at /login with email/password form
+- Updated Landing page to redirect to /login instead of /api/login
+- Added logout button to Profile page
 
 ### Multi-Tenancy Implementation ✅
 - Added `universities` table with id, name, location, code fields
