@@ -212,3 +212,17 @@ Preferred communication style: Simple, everyday language.
 - Outlet creation validates university ownership (university_admin restricted to their campus)
 - All outlet detail and dish endpoints require authentication and university-scope verification
 - Cross-tenant data leakage prevented at API level
+
+### Auto-Credential Generation System ✅
+- **University Creation**: App admin creates university → auto-generates unique email/password for university admin
+  - Email format: `admin.{code}.{uniqueId}@campus.edu`
+  - Password: Randomly generated 16-character secure password
+  - Credentials displayed in modal with copy-to-clipboard functionality
+- **Outlet Creation**: University admin creates outlet → auto-generates unique email/password for outlet owner
+  - Email format: `owner.{outletname}.{uniqueId}@campus.edu`
+  - Password: Randomly generated 16-character secure password
+  - Credentials displayed in modal with copy-to-clipboard functionality
+- **Security**: Passwords bcrypt-hashed before storage, plain password shown only once in creation modal
+- **Data Flow**: University admin automatically assigned universityId, outlet owner inherits universityId from university admin
+- **JSON Parsing Fix**: All apiRequest responses properly parsed with .json() before accessing properties
+- **Menu Extraction**: Photo-based menu extraction with Gemini Vision API integrated into outlet creation flow
