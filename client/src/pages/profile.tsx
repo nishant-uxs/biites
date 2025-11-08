@@ -175,14 +175,16 @@ export default function Profile() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="font-semibold">
-                          {entry.firstName} {entry.lastName}
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">
+                            {entry.firstName} {entry.lastName}
+                          </span>
                           {isCurrentUser && (
-                            <Badge variant="secondary" className="ml-2 text-xs">
+                            <Badge variant="secondary" className="text-xs">
                               You
                             </Badge>
                           )}
-                        </p>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {entry.orderCount} orders
                         </p>
