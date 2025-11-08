@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -94,7 +94,18 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-muted/50 rounded-md">
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link href="/register">
+                <a className="text-primary font-medium hover:underline" data-testid="link-register">
+                  Sign up now
+                </a>
+              </Link>
+            </p>
+          </div>
+
+          <div className="mt-4 p-4 bg-muted/50 rounded-md">
             <p className="text-sm font-medium mb-2">Test Accounts:</p>
             <div className="text-xs text-muted-foreground space-y-1">
               <p>• App Admin: admin@test.com</p>

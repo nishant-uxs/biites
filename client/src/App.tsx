@@ -11,6 +11,7 @@ import { BottomNav } from "@/components/bottom-nav";
 // Pages
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
+import Register from "@/pages/register";
 import Home from "@/pages/home";
 import Orders from "@/pages/orders";
 import Rewards from "@/pages/rewards";
@@ -39,6 +40,7 @@ function Router() {
     <Switch>
       {/* Public routes */}
       <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route path="/unauthorized" component={Unauthorized} />
       
       {/* Root route - redirect based on auth status */}
