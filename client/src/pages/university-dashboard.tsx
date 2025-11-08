@@ -39,6 +39,7 @@ export default function UniversityDashboard() {
   const [menuImageUrl, setMenuImageUrl] = useState("");
   const [extractedDishes, setExtractedDishes] = useState<ExtractedDish[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState(false);
 
   // Redirect if not university admin or app admin
   if (user && user.role !== "university_admin" && user.role !== "app_admin") {
@@ -68,6 +69,7 @@ export default function UniversityDashboard() {
       });
 
       setMenuImageUrl(uploadedUrl);
+      setExtractionError(false);
 
       setIsExtracting(true);
       try {
@@ -76,11 +78,15 @@ export default function UniversityDashboard() {
         });
 
         setExtractedDishes(extractResponse.dishes);
+        setExtractionError(false);
         toast({
           title: "Menu extracted successfully",
           description: `Found ${extractResponse.dishes.length} dishes from the menu photo`,
         });
       } catch (error) {
+        setExtractedDishes([]);
+        setMenuImageUrl("");
+        setExtractionError(true);
         toast({
           title: "Extraction failed",
           description: "Could not extract dishes from the menu photo. Please try again.",
@@ -136,6 +142,7 @@ export default function UniversityDashboard() {
       setFormData({ name: "", description: "", averagePrice: "" });
       setMenuImageUrl("");
       setExtractedDishes([]);
+      setExtractionError(false);
     },
     onError: (error: Error) => {
       toast({
@@ -233,6 +240,11 @@ export default function UniversityDashboard() {
                     Extracting dishes from menu photo...
                   </p>
                 )}
+                {extractionError && (
+                  <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive" data-testid="text-extraction-error">
+                    Menu extraction failed. Please upload a clearer menu photo and try again.
+                  </div>
+                )}
                 {extractedDishes.length > 0 && (
                   <div className="mt-3 p-3 bg-muted rounded-lg">
                     <p className="text-sm font-medium mb-2" data-testid="text-dishes-extracted">
@@ -258,10 +270,10 @@ export default function UniversityDashboard() {
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={createOutletMutation.isPending}
+                disabled={createOutletMutation.isPending || isExtracting}
                 data-testid="button-create-outlet"
               >
-                {createOutletMutation.isPending ? "Creating..." : "Create Outlet"}
+                {createOutletMutation.isPending ? "Creating..." : isExtracting ? "Extracting menu..." : "Create Outlet"}
               </Button>
             </form>
           </CardContent>

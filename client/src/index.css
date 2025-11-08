@@ -355,3 +355,5 @@
     inset: -1px;
   }
 }
+/* Uppy File Uploader Styles */
+@import url('https://releases.transloadit.com/uppy/v3.27.3/uppy.min.css');
