@@ -5,6 +5,26 @@ import { setupAuth, isAuthenticated } from "./localAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { GeminiService } from "./geminiService";
+import bcrypt from "bcrypt";
+
+// Helper function to generate unique credentials
+function generateUniqueId(length: number = 8): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function generatePassword(length: number = 12): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 // Role-based middleware
 const isAppAdmin = async (req: any, res: any, next: any) => {
@@ -118,8 +138,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/admin/universities', isAuthenticated, isAppAdmin, async (req: any, res) => {
     try {
+      // Create university
       const university = await storage.createUniversity(req.body);
-      res.json(university);
+      
+      // Generate unique credentials for university admin
+      const uniqueId = generateUniqueId(6);
+      const adminEmail = `admin.${university.code?.toLowerCase() || university.id}.${uniqueId}@campus.edu`;
+      const adminPassword = generatePassword(12);
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      
+      // Create university admin user
+      const adminUser = await storage.createUser({
+        email: adminEmail,
+        password: hashedPassword,
+        firstName: "University",
+        lastName: "Admin",
+        role: "university_admin",
+      });
+      
+      // Set university for admin
+      await storage.updateUserUniversity(adminUser.id, university.id);
+      
+      // Return university and credentials (password only shown once)
+      res.json({
+        university,
+        credentials: {
+          email: adminEmail,
+          password: adminPassword, // Plain password for display
+          userId: adminUser.id,
+        }
+      });
     } catch (error) {
       console.error("Error creating university:", error);
       res.status(500).json({ message: "Failed to create university" });
@@ -236,16 +284,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Invalid role for outlet creation" });
       }
       
+      // Generate unique credentials for outlet owner
+      const uniqueId = generateUniqueId(6);
+      const ownerEmail = `owner.${req.body.name.toLowerCase().replace(/\s+/g, '')}.${uniqueId}@campus.edu`;
+      const ownerPassword = generatePassword(12);
+      const hashedPassword = await bcrypt.hash(ownerPassword, 10);
+      
+      // Create outlet owner user
+      const ownerUser = await storage.createUser({
+        email: ownerEmail,
+        password: hashedPassword,
+        firstName: "Outlet",
+        lastName: "Owner",
+        role: "outlet_owner",
+      });
+      
+      // Set university for owner
+      await storage.updateUserUniversity(ownerUser.id, universityId!);
+      
+      // Create outlet with owner ID
       const outlet = await storage.createOutlet({
         name: req.body.name,
         description: req.body.description,
         imageUrl: req.body.imageUrl || null,
         averagePrice: req.body.averagePrice,
         maxActiveOrders: req.body.maxActiveOrders || 10,
-        ownerId: req.body.ownerId || user.id,
+        ownerId: ownerUser.id,
         universityId,
       });
-      res.json(outlet);
+      
+      // Return outlet and credentials (password only shown once)
+      res.json({
+        outlet,
+        credentials: {
+          email: ownerEmail,
+          password: ownerPassword, // Plain password for display
+          userId: ownerUser.id,
+        }
+      });
     } catch (error) {
       console.error("Error creating outlet:", error);
       res.status(500).json({ message: "Failed to create outlet" });
