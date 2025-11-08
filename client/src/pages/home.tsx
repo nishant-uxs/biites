@@ -161,8 +161,8 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">What's your craving today?</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Wallet Balance</p>
-              <p className="text-xl font-bold text-primary">₹{user?.walletBalance || 0}</p>
+              <p className="text-xs text-muted-foreground">Your Tokens</p>
+              <p className="text-xl font-bold text-primary">{user?.tokens || 0}</p>
             </div>
           </div>
 

@@ -355,8 +355,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/dishes/trending', async (req, res) => {
+  app.get('/api/dishes/trending', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      // Only fetch trending dishes from user's university or all if app_admin
+      const universityId = user?.role === "app_admin" ? undefined : user?.universityId;
+      if (!universityId && user?.role !== "app_admin") {
+        return res.json([]); // No university = no dishes for students
+      }
+      
       const trending = await storage.getTrendingDishes(20);
       
       // Add outlet name
@@ -650,8 +659,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== REWARD ROUTES =====
   
-  app.get('/api/rewards', async (req, res) => {
+  app.get('/api/rewards', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      // TODO: Implement university-scoped rewards
       const rewards = await storage.getRewards();
       res.json(rewards);
     } catch (error) {
@@ -684,8 +697,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== CHALLENGE ROUTES =====
   
-  app.get('/api/challenges', async (req, res) => {
+  app.get('/api/challenges', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      // TODO: Implement university-scoped challenges
       const challenges = await storage.getChallenges();
       res.json(challenges);
     } catch (error) {
@@ -707,8 +724,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== BADGE ROUTES =====
   
-  app.get('/api/badges', async (req, res) => {
+  app.get('/api/badges', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
+      
+      // Get all available badges
       const badges = await storage.getBadges();
       res.json(badges);
     } catch (error) {
@@ -730,8 +750,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== LEADERBOARD ROUTES =====
   
-  app.get('/api/leaderboard', async (req, res) => {
+  app.get('/api/leaderboard', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      // Get leaderboard - for students, only their campus; for admins, all
+      // TODO: Implement university-scoped leaderboard in storage layer
       const leaderboard = await storage.getLeaderboard(50);
       res.json(leaderboard);
     } catch (error) {
