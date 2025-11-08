@@ -194,6 +194,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/universities/:id/outlets', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const outlets = await storage.getOutlets(req.params.id);
+      res.json(outlets);
+    } catch (error) {
+      console.error("Error fetching university outlets:", error);
+      res.status(500).json({ message: "Failed to fetch outlets" });
+    }
+  });
+
   // ===== OUTLET ROUTES =====
   
   app.get('/api/outlets', isAuthenticated, async (req: any, res) => {
