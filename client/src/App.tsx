@@ -20,6 +20,7 @@ import AdminDashboard from "@/pages/admin";
 import UniversityDashboard from "@/pages/university-dashboard";
 import OutletDashboard from "@/pages/outlet-dashboard";
 import SelectUniversity from "@/pages/select-university";
+import Leaderboard from "@/pages/leaderboard";
 import Unauthorized from "@/pages/unauthorized";
 import NotFound from "@/pages/not-found";
 
@@ -97,6 +98,12 @@ function Router() {
       <Route path="/profile">
         <ProtectedRoute>
           <Profile />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/leaderboard">
+        <ProtectedRoute>
+          <Leaderboard />
         </ProtectedRoute>
       </Route>
 
