@@ -14,11 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf } from "lucide-react";
+import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Dish, Outlet, Order } from "@shared/schema";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 
 // Form schema for dish creation
 const dishSchema = z.object({
@@ -50,6 +52,12 @@ export default function OutletDashboard() {
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [isAddDishOpen, setIsAddDishOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("menu");
+  
+  // Menu extraction state
+  const [menuImageUrl, setMenuImageUrl] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedDishes, setExtractedDishes] = useState<any[]>([]);
+  const [extractionError, setExtractionError] = useState(false);
 
   const form = useForm<DishFormValues>({
     resolver: zodResolver(dishSchema),
@@ -204,6 +212,91 @@ export default function OutletDashboard() {
     },
   });
 
+  // Bulk add dishes from menu extraction
+  const bulkAddDishesMutation = useMutation({
+    mutationFn: async (dishes: any[]) => {
+      if (!outlet) throw new Error("Outlet not found");
+      const promises = dishes.map(dish =>
+        apiRequest("POST", "/api/dishes", {
+          outletId: outlet.id,
+          name: dish.name,
+          description: dish.description || "",
+          price: dish.price,
+          category: dish.category || "main_course",
+          isVeg: dish.isVeg ?? true,
+          isAvailable: true,
+          calories: dish.calories || null,
+          protein: dish.protein || null,
+          carbs: dish.carbs || null,
+          sugar: dish.sugar || null,
+        })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/outlets/${outlet?.id}/dishes`] });
+      toast({
+        title: "Success",
+        description: `${extractedDishes.length} dishes added successfully`,
+      });
+      setExtractedDishes([]);
+      setMenuImageUrl("");
+      setIsAddDishOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Menu photo upload handlers
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("POST", "/api/object-storage/upload-url", {
+      fileName: `menu-${Date.now()}.jpg`,
+      contentType: "image/jpeg",
+    });
+    const data: any = await response.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadUrl,
+    };
+  };
+
+  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful[0]) {
+      const uploadedUrl = result.successful[0].uploadURL || "";
+      setMenuImageUrl(uploadedUrl);
+      setIsExtracting(true);
+      try {
+        const extractResponse = await apiRequest("POST", "/api/menu/extract", {
+          menuImageUrl: uploadedUrl,
+        });
+        const extractData: any = await extractResponse.json();
+
+        setExtractedDishes(extractData.dishes);
+        setExtractionError(false);
+        toast({
+          title: "Menu extracted successfully",
+          description: `Found ${extractData.dishes.length} dishes from the menu photo`,
+        });
+      } catch (error) {
+        setExtractedDishes([]);
+        setMenuImageUrl("");
+        setExtractionError(true);
+        toast({
+          title: "Extraction failed",
+          description: "Could not extract menu from the photo. Please try again or add dishes manually.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsExtracting(false);
+      }
+    }
+  };
+
   const handleDishSubmit = (values: DishFormValues) => {
     if (editingDish) {
       editDishMutation.mutate({ ...values, id: editingDish.id });
@@ -350,6 +443,95 @@ export default function OutletDashboard() {
                         {editingDish ? "Update the dish details" : "Add a new dish to your menu"}
                       </DialogDescription>
                     </DialogHeader>
+
+                    {/* Menu Photo Upload Section - Only for adding new dishes */}
+                    {!editingDish && !menuImageUrl && extractedDishes.length === 0 && (
+                      <div className="space-y-4 border-b pb-4">
+                        <Label>Upload Menu Photo (Optional)</Label>
+                        <div className="border-2 border-dashed rounded-lg p-6">
+                          <ObjectUploader
+                            onGetUploadParameters={handleGetUploadParameters}
+                            onUploadComplete={handleUploadComplete}
+                            accept="image/*"
+                            allowedMetaFields={[]}
+                            restrictions={{
+                              maxFileSize: 10 * 1024 * 1024,
+                              maxNumberOfFiles: 1,
+                              minNumberOfFiles: 0,
+                              allowedFileTypes: ['image/*'],
+                            }}
+                            render={({ browseFiles }: { browseFiles: () => void }) => (
+                              <div className="text-center">
+                                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  Upload a photo of your menu to automatically add multiple dishes at once
+                                </p>
+                                <Button type="button" variant="outline" onClick={browseFiles} data-testid="button-upload-menu">
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  Choose Menu Photo
+                                </Button>
+                              </div>
+                            )}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Or skip this and add dishes manually one by one below
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Extraction Status */}
+                    {isExtracting && (
+                      <div className="flex items-center justify-center py-6 gap-2 border-b pb-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm">Extracting dishes from menu photo...</span>
+                      </div>
+                    )}
+
+                    {/* Extracted Dishes Preview */}
+                    {extractedDishes.length > 0 && (
+                      <div className="space-y-4 border-b pb-4">
+                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
+                            ✓ Successfully extracted {extractedDishes.length} dishes from menu
+                          </p>
+                          <div className="max-h-32 overflow-y-auto text-xs text-green-700 dark:text-green-300 space-y-1">
+                            {extractedDishes.map((dish, i) => (
+                              <div key={i} className="flex justify-between">
+                                <span>{dish.name}</span>
+                                <span className="font-medium">₹{dish.price}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => bulkAddDishesMutation.mutate(extractedDishes)}
+                            disabled={bulkAddDishesMutation.isPending}
+                            className="flex-1"
+                            data-testid="button-add-extracted-dishes"
+                          >
+                            {bulkAddDishesMutation.isPending ? "Adding..." : `Add All ${extractedDishes.length} Dishes`}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setExtractedDishes([]);
+                              setMenuImageUrl("");
+                            }}
+                            data-testid="button-cancel-extraction"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Or add a single dish manually below
+                        </p>
+                      </div>
+                    )}
+
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(handleDishSubmit)} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
