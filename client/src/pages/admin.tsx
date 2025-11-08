@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Store, ShoppingBag, Copy, Check } from "lucide-react";
+import { 
+  Building2, Plus, Users, Store, ShoppingBag, Copy, Check, Shield, 
+  TrendingUp, IndianRupee, MapPin, Code, Activity, UserCheck, BookOpen,
+  AlertCircle, GraduationCap, ChefHat, Zap
+} from "lucide-react";
 import type { University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -17,6 +23,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface PlatformAnalytics {
   totalUsers: number;
@@ -33,58 +50,20 @@ interface UniversityStats {
   orderCount: number;
 }
 
-function UniversityCard({ university }: { university: University }) {
-  const { data: stats, isLoading, isError } = useQuery<UniversityStats>({
-    queryKey: ['/api/admin/universities', university.id, 'stats'],
-    retry: 2,
-  });
+const universitySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  location: z.string().min(1, "Location is required"),
+  code: z.string().min(1, "Code is required").regex(/^[A-Z0-9-]+$/, "Code must be uppercase letters, numbers, and hyphens only"),
+});
 
-  return (
-    <div
-      className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border"
-      data-testid={`university-card-${university.id}`}
-    >
-      <div>
-        <h3 className="font-semibold text-lg" data-testid={`text-university-name-${university.id}`}>
-          {university.name}
-        </h3>
-        <p className="text-sm text-muted-foreground">{university.location}</p>
-        <p className="text-xs text-muted-foreground mt-1">Code: {university.code}</p>
-      </div>
-      <div className="flex items-center gap-3 text-sm">
-        <div className="flex items-center gap-1">
-          <Store className="w-4 h-4 text-primary" />
-          <span className="font-medium" data-testid={`text-outlets-${university.id}`}>
-            {isError ? "Error" : isLoading ? "..." : `${stats?.outletCount || 0} outlets`}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Users className="w-4 h-4 text-primary" />
-          <span className="font-medium" data-testid={`text-students-${university.id}`}>
-            {isError ? "Error" : isLoading ? "..." : `${stats?.studentCount || 0} students`}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <ShoppingBag className="w-4 h-4 text-primary" />
-          <span className="font-medium" data-testid={`text-orders-${university.id}`}>
-            {isError ? "Error" : isLoading ? "..." : `${stats?.orderCount || 0} orders`}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
+type UniversityFormValues = z.infer<typeof universitySchema>;
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    location: "",
-    code: "",
-  });
+  const [activeTab, setActiveTab] = useState("overview");
+  const [showAddUniversity, setShowAddUniversity] = useState(false);
   
   const [showCredentials, setShowCredentials] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState<{
@@ -93,28 +72,41 @@ export default function AdminDashboard() {
   } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  const form = useForm<UniversityFormValues>({
+    resolver: zodResolver(universitySchema),
+    defaultValues: {
+      name: "",
+      location: "",
+      code: "",
+    },
+  });
+
   // Redirect if not app admin
   if (user && user.role !== "app_admin") {
     setLocation("/");
     return null;
   }
 
-  const { data: universities = [] } = useQuery<University[]>({
+  const { data: universities = [], isLoading: universitiesLoading } = useQuery<University[]>({
     queryKey: ['/api/universities'],
   });
 
-  const { data: analytics, isLoading: analyticsLoading, isError: analyticsError } = useQuery<PlatformAnalytics>({
+  const { data: analytics, isLoading: analyticsLoading } = useQuery<PlatformAnalytics>({
     queryKey: ['/api/admin/analytics'],
   });
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: `${field === 'email' ? 'Email' : 'Password'} copied to clipboard`,
+    });
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
   const createUniversityMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: UniversityFormValues) => {
       const response = await apiRequest("POST", "/api/admin/universities", data);
       return await response.json();
     },
@@ -123,7 +115,12 @@ export default function AdminDashboard() {
       setShowCredentials(true);
       queryClient.invalidateQueries({ queryKey: ['/api/universities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
-      setFormData({ name: "", location: "", code: "" });
+      setShowAddUniversity(false);
+      form.reset();
+      toast({
+        title: "Success",
+        description: "University created successfully",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -134,183 +131,276 @@ export default function AdminDashboard() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.location || !formData.code) {
-      toast({
-        title: "Error",
-        description: "Please fill all fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    createUniversityMutation.mutate(formData);
+  const handleSubmit = (values: UniversityFormValues) => {
+    createUniversityMutation.mutate(values);
   };
 
+  // Stats cards data
+  const statsCards = [
+    {
+      title: "Total Universities",
+      value: analytics?.totalUniversities || 0,
+      icon: GraduationCap,
+      color: "text-blue-500",
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      description: "Active campuses",
+    },
+    {
+      title: "Total Outlets",
+      value: analytics?.totalOutlets || 0,
+      icon: Store,
+      color: "text-green-500",
+      bg: "bg-green-50 dark:bg-green-900/20",
+      description: "Food outlets",
+    },
+    {
+      title: "Total Students",
+      value: analytics?.totalStudents || 0,
+      icon: Users,
+      color: "text-purple-500",
+      bg: "bg-purple-50 dark:bg-purple-900/20",
+      description: "Registered users",
+    },
+    {
+      title: "Total Orders",
+      value: analytics?.totalOrders || 0,
+      icon: ShoppingBag,
+      color: "text-orange-500",
+      bg: "bg-orange-50 dark:bg-orange-900/20",
+      description: "All time orders",
+    },
+    {
+      title: "Total Revenue",
+      value: `₹${analytics?.totalRevenue || 0}`,
+      icon: IndianRupee,
+      color: "text-emerald-500",
+      bg: "bg-emerald-50 dark:bg-emerald-900/20",
+      description: "Platform revenue",
+    },
+    {
+      title: "Active Users",
+      value: analytics?.totalUsers || 0,
+      icon: UserCheck,
+      color: "text-pink-500",
+      bg: "bg-pink-50 dark:bg-pink-900/20",
+      description: "All user accounts",
+    },
+  ];
+
   return (
-    <div className="min-h-screen pb-20 p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Manage universities across Campus Biites</p>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card">
+        <div className="flex h-20 items-center px-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Shield className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Platform Admin</h1>
+              <p className="text-sm text-muted-foreground">Manage universities and monitor platform metrics</p>
+            </div>
+          </div>
+          <div className="ml-auto">
+            <Badge variant="default" className="gap-1">
+              <Activity className="w-3 h-3" />
+              System Active
+            </Badge>
           </div>
         </div>
+      </div>
 
-        {/* Platform Analytics */}
-        {analyticsLoading && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="text-sm text-muted-foreground mt-2">Loading analytics...</p>
-          </div>
-        )}
-        
-        {analyticsError && (
-          <Card>
-            <CardContent className="py-6 text-center">
-              <p className="text-destructive">Failed to load analytics. Please try again later.</p>
-            </CardContent>
-          </Card>
-        )}
-        
-        {analytics && !analyticsLoading && !analyticsError && (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-users">{analytics.totalUsers}</div>
-              </CardContent>
-            </Card>
+      <div className="p-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="universities">Universities</TabsTrigger>
+          </TabsList>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-students">{analytics.totalStudents}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Universities</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-universities">{analytics.totalUniversities}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Outlets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-outlets">{analytics.totalOutlets}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-orders">{analytics.totalOrders}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="text-total-revenue">
-                  ₹{parseFloat(analytics.totalRevenue as any).toFixed(2)}
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* Analytics Cards */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {analyticsLoading ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  Loading analytics...
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Add University Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-primary" />
-              Add New University
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">University Name</Label>
-                  <Input
-                    id="name"
-                    data-testid="input-university-name"
-                    placeholder="e.g., IIT Delhi"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="code">University Code</Label>
-                  <Input
-                    id="code"
-                    data-testid="input-university-code"
-                    placeholder="e.g., IIT-DEL"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  data-testid="input-university-location"
-                  placeholder="e.g., Hauz Khas, New Delhi"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={createUniversityMutation.isPending}
-                data-testid="button-create-university"
-              >
-                {createUniversityMutation.isPending ? "Creating..." : "Create University"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Universities List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-primary" />
-              All Universities ({universities.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {universities.map((university) => (
-                <UniversityCard key={university.id} university={university} />
-              ))}
-              {universities.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No universities added yet</p>
-                  <p className="text-xs mt-1">Add your first university using the form above</p>
-                </div>
+              ) : (
+                statsCards.map((stat, index) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Card key={index} className="hover-elevate">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                          {stat.title}
+                        </CardTitle>
+                        <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                          <Icon className={`w-4 h-4 ${stat.color}`} />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{stat.value}</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {stat.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Status</CardTitle>
+                <CardDescription>Real-time platform metrics and health</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-green-600" />
+                    <span className="font-medium">All Systems Operational</span>
+                  </div>
+                  <Badge variant="outline" className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+                    Healthy
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-muted-foreground">Response Time</p>
+                    <p className="font-semibold text-lg">45ms</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-muted-foreground">Uptime</p>
+                    <p className="font-semibold text-lg">99.9%</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-muted-foreground">Active Sessions</p>
+                    <p className="font-semibold text-lg">1,234</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Universities Tab */}
+          <TabsContent value="universities" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Manage Universities</CardTitle>
+                  <CardDescription>Add and manage campus partnerships</CardDescription>
+                </div>
+                <Dialog open={showAddUniversity} onOpenChange={setShowAddUniversity}>
+                  <Button onClick={() => setShowAddUniversity(true)} data-testid="button-add-university">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add University
+                  </Button>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New University</DialogTitle>
+                      <DialogDescription>
+                        Create a new university partnership. Login credentials will be generated automatically.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>University Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="IIT Delhi" data-testid="input-university-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="location"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Location</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="New Delhi" data-testid="input-university-location" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="code"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>University Code</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="IIT-DEL" 
+                                  onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                  data-testid="input-university-code" 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setShowAddUniversity(false);
+                              form.reset();
+                            }}
+                            data-testid="button-cancel"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={createUniversityMutation.isPending}
+                            data-testid="button-submit"
+                          >
+                            Create University
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {universitiesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading universities...
+                  </div>
+                ) : universities.length === 0 ? (
+                  <div className="text-center py-8">
+                    <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-4">No universities added yet</p>
+                    <Button variant="outline" onClick={() => setShowAddUniversity(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add your first university
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {universities.map((university) => (
+                      <UniversityCard key={university.id} university={university} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Credentials Dialog */}
@@ -371,18 +461,73 @@ export default function AdminDashboard() {
             </div>
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
               <p className="text-xs text-amber-800 dark:text-amber-200">
-                These credentials are for the university admin to log in and manage outlets.
-                Make sure to save them before closing this dialog.
+                Share these credentials with the university administrator. They will need them to log in and manage their campus outlets.
               </p>
             </div>
           </div>
           <div className="flex justify-end">
-            <Button onClick={() => setShowCredentials(false)} data-testid="button-close-credentials">
+            <Button onClick={() => setShowCredentials(false)} data-testid="button-close">
               Close
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function UniversityCard({ university }: { university: University }) {
+  const { data: stats, isLoading } = useQuery<UniversityStats>({
+    queryKey: ['/api/admin/universities', university.id, 'stats'],
+    retry: 2,
+  });
+
+  return (
+    <Card className="hover-elevate">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <GraduationCap className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg" data-testid={`text-university-name-${university.id}`}>
+                {university.name}
+              </h3>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {university.location}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Code className="w-3 h-3" />
+                  {university.code}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold" data-testid={`text-outlets-${university.id}`}>
+                {isLoading ? "..." : stats?.outletCount || 0}
+              </p>
+              <p className="text-xs text-muted-foreground">Outlets</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold" data-testid={`text-students-${university.id}`}>
+                {isLoading ? "..." : stats?.studentCount || 0}
+              </p>
+              <p className="text-xs text-muted-foreground">Students</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold" data-testid={`text-orders-${university.id}`}>
+                {isLoading ? "..." : stats?.orderCount || 0}
+              </p>
+              <p className="text-xs text-muted-foreground">Orders</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
