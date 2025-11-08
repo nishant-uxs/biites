@@ -236,9 +236,7 @@ Preferred communication style: Simple, everyday language.
   
 - **Admin Dashboard Enhancements**:
   - Removed hardcoded Platform Status section with fake metrics (Response Time, Uptime, Active Sessions)
-  - Added expandable University Details view - admins can now click any university card to see all its outlets
-  - Each outlet shows: name, description, dish count, open/closed status
-  - Outlets list fetched on-demand when university card is expanded
+  - Simplified University Cards - clean view with summary stats only (outlets, students, orders counts)
   
 - **Security & Authentication Fixes**:
   - Fixed session deserialization error handling - gracefully clears invalid sessions instead of crashing

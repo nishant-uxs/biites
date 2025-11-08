@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Building2, Plus, Users, Store, ShoppingBag, Copy, Check, Shield, 
   TrendingUp, IndianRupee, MapPin, Code, Activity, UserCheck, BookOpen,
-  AlertCircle, GraduationCap, ChefHat, Zap, ChevronDown, ChevronUp
+  AlertCircle, GraduationCap, ChefHat, Zap
 } from "lucide-react";
 import type { University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -444,27 +444,15 @@ export default function AdminDashboard() {
 }
 
 function UniversityCard({ university }: { university: University }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  
   const { data: stats, isLoading } = useQuery<UniversityStats>({
     queryKey: ['/api/admin/universities', university.id, 'stats'],
-    retry: 2,
-  });
-
-  const { data: outlets = [], isLoading: outletsLoading } = useQuery<any[]>({
-    queryKey: ['/api/admin/universities', university.id, 'outlets'],
-    enabled: isExpanded,
     retry: 2,
   });
 
   return (
     <Card className="hover-elevate">
       <CardContent className="p-4">
-        <div 
-          className="flex items-center justify-between cursor-pointer" 
-          onClick={() => setIsExpanded(!isExpanded)}
-          data-testid={`button-toggle-university-${university.id}`}
-        >
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
               <GraduationCap className="w-6 h-6 text-primary" />
@@ -504,67 +492,8 @@ function UniversityCard({ university }: { university: University }) {
               </p>
               <p className="text-xs text-muted-foreground">Orders</p>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              data-testid={`button-expand-${university.id}`}
-            >
-              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </Button>
           </div>
         </div>
-
-        {/* Expanded Outlets View */}
-        {isExpanded && (
-          <div className="mt-4 pt-4 border-t space-y-3">
-            <div className="flex items-center gap-2 mb-3">
-              <Store className="w-4 h-4 text-primary" />
-              <h4 className="font-semibold">Outlets</h4>
-            </div>
-            {outletsLoading ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                Loading outlets...
-              </div>
-            ) : outlets.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                No outlets added yet
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {outlets.map((outlet: any) => (
-                  <div 
-                    key={outlet.id} 
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                    data-testid={`outlet-${outlet.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-                        <ChefHat className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{outlet.name}</p>
-                        <p className="text-xs text-muted-foreground">{outlet.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="text-center">
-                        <p className="font-semibold">{outlet.dishCount || 0}</p>
-                        <p className="text-xs text-muted-foreground">Dishes</p>
-                      </div>
-                      <Badge variant={outlet.isOpen ? "default" : "secondary"}>
-                        {outlet.isOpen ? "Open" : "Closed"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );
