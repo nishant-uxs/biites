@@ -410,6 +410,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/dishes/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const dishId = req.params.id;
+      const userId = req.user.id;
+      
+      // Verify ownership - outlet owner can only edit their own dishes
+      const dish = await storage.getDishById(dishId);
+      if (!dish) {
+        return res.status(404).json({ message: "Dish not found" });
+      }
+      
+      const outlet = await storage.getOutlet(dish.outletId);
+      if (!outlet || (outlet.ownerId !== userId && req.user.role !== 'app_admin')) {
+        return res.status(403).json({ message: "Not authorized to edit this dish" });
+      }
+      
+      const updatedDish = await storage.updateDish(dishId, req.body);
+      res.json(updatedDish);
+    } catch (error) {
+      console.error("Error updating dish:", error);
+      res.status(500).json({ message: "Failed to update dish" });
+    }
+  });
+
+  app.delete('/api/dishes/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const dishId = req.params.id;
+      const userId = req.user.id;
+      
+      // Verify ownership - outlet owner can only delete their own dishes
+      const dish = await storage.getDishById(dishId);
+      if (!dish) {
+        return res.status(404).json({ message: "Dish not found" });
+      }
+      
+      const outlet = await storage.getOutlet(dish.outletId);
+      if (!outlet || (outlet.ownerId !== userId && req.user.role !== 'app_admin')) {
+        return res.status(403).json({ message: "Not authorized to delete this dish" });
+      }
+      
+      await storage.deleteDish(dishId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dish:", error);
+      res.status(500).json({ message: "Failed to delete dish" });
+    }
+  });
+
+  // ===== OUTLET OWNER ROUTES =====
+
+  // Get outlet owner's own outlet
+  app.get('/api/outlet/my', isAuthenticated, isOutletOwner, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const outlet = await storage.getOutletByOwnerId(userId);
+      
+      if (!outlet) {
+        return res.status(404).json({ message: "No outlet found for this owner" });
+      }
+      
+      res.json(outlet);
+    } catch (error) {
+      console.error("Error fetching outlet:", error);
+      res.status(500).json({ message: "Failed to fetch outlet" });
+    }
+  });
+
+  // Get orders for an outlet
+  app.get('/api/outlet/:id/orders', isAuthenticated, async (req: any, res) => {
+    try {
+      const outletId = req.params.id;
+      const userId = req.user.id;
+      
+      // Verify ownership - outlet owner can only see their own orders
+      const outlet = await storage.getOutlet(outletId);
+      if (!outlet || (outlet.ownerId !== userId && req.user.role !== 'app_admin')) {
+        return res.status(403).json({ message: "Not authorized to view these orders" });
+      }
+      
+      const orders = await storage.getOutletOrders(outletId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching outlet orders:", error);
+      res.status(500).json({ message: "Failed to fetch outlet orders" });
+    }
+  });
+
+  // Toggle outlet chill period
+  app.patch('/api/outlets/:id/chill-period', isAuthenticated, async (req: any, res) => {
+    try {
+      const outletId = req.params.id;
+      const userId = req.user.id;
+      const { isChillPeriod } = req.body;
+      
+      // Verify ownership - outlet owner can only update their own outlet
+      const outlet = await storage.getOutlet(outletId);
+      if (!outlet || (outlet.ownerId !== userId && req.user.role !== 'app_admin')) {
+        return res.status(403).json({ message: "Not authorized to update this outlet" });
+      }
+      
+      await storage.updateOutletChillPeriod(outletId, isChillPeriod, undefined);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating chill period:", error);
+      res.status(500).json({ message: "Failed to update chill period" });
+    }
+  });
+
   // ===== ORDER ROUTES =====
   
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {

@@ -108,6 +108,8 @@ export const dishes = pgTable("dishes", {
   imageUrl: varchar("image_url"),
   price: integer("price").notNull(), // in rupees
   category: varchar("category").notNull(), // "main", "beverage", "side", "dessert"
+  isVeg: boolean("is_veg").default(true).notNull(), // vegetarian or non-vegetarian
+  isAvailable: boolean("is_available").default(true).notNull(), // availability status
   calories: integer("calories"),
   protein: integer("protein"), // in grams
   carbs: integer("carbs"), // in grams

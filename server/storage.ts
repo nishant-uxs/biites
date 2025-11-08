@@ -222,6 +222,15 @@ export class DatabaseStorage implements IStorage {
     return outlet;
   }
 
+  async getOutletByOwnerId(ownerId: string): Promise<Outlet | undefined> {
+    const [outlet] = await db.select().from(outlets).where(eq(outlets.ownerId, ownerId));
+    return outlet || undefined;
+  }
+
+  async getOutletOrders(outletId: string): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.outletId, outletId)).orderBy(desc(orders.createdAt));
+  }
+
   async updateOutletChillPeriod(id: string, isChillPeriod: boolean, endsAt?: Date): Promise<void> {
     await db
       .update(outlets)
@@ -257,6 +266,24 @@ export class DatabaseStorage implements IStorage {
       .values(dishData)
       .returning();
     return dish;
+  }
+
+  async getDishById(id: string): Promise<Dish | undefined> {
+    const [dish] = await db.select().from(dishes).where(eq(dishes.id, id));
+    return dish || undefined;
+  }
+
+  async updateDish(id: string, dishData: Partial<InsertDish>): Promise<Dish> {
+    const [dish] = await db
+      .update(dishes)
+      .set(dishData)
+      .where(eq(dishes.id, id))
+      .returning();
+    return dish;
+  }
+
+  async deleteDish(id: string): Promise<void> {
+    await db.delete(dishes).where(eq(dishes.id, id));
   }
 
   async getTrendingDishes(limit: number = 20): Promise<Dish[]> {
