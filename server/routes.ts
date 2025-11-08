@@ -144,8 +144,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique credentials for university admin
       const uniqueId = generateUniqueId(6);
       const adminEmail = `admin.${university.code?.toLowerCase() || university.id}.${uniqueId}@campus.edu`;
-      const adminPassword = generatePassword(12);
+      const adminPassword = generatePassword(16); // Increased to 16 for security
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      
+      console.log(`[University Admin Created]`);
+      console.log(`Email: ${adminEmail}`);
+      console.log(`Generated Password: ${adminPassword}`);
+      console.log(`Hashed Password: ${hashedPassword.substring(0, 20)}...`);
       
       // Create university admin user
       const adminUser = await storage.createUser({
