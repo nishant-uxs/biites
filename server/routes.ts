@@ -2,6 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./localAuth";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
+import { GeminiService } from "./geminiService";
 
 // Role-based middleware
 const isAppAdmin = async (req: any, res: any, next: any) => {
@@ -585,6 +588,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating chill period:", error);
       res.status(500).json({ message: "Failed to update chill period" });
+    }
+  });
+
+  // ===== OBJECT STORAGE ROUTES =====
+
+  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    res.json({ uploadURL });
+  });
+
+  app.post("/api/objects/set-acl", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { objectURL, visibility } = req.body;
+
+      if (!objectURL) {
+        return res.status(400).json({ error: "objectURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        objectURL,
+        {
+          owner: userId,
+          visibility: visibility || "public",
+        }
+      );
+
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error setting object ACL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ===== MENU EXTRACTION ROUTES =====
+
+  app.post("/api/menu/extract", isAuthenticated, isUniversityAdmin, async (req: any, res) => {
+    try {
+      const { menuImageUrl } = req.body;
+
+      if (!menuImageUrl) {
+        return res.status(400).json({ error: "menuImageUrl is required" });
+      }
+
+      const geminiService = new GeminiService();
+      const result = await geminiService.extractMenuFromImage(menuImageUrl);
+
+      if (result.error) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.json({ dishes: result.dishes });
+    } catch (error) {
+      console.error("Error extracting menu:", error);
+      res.status(500).json({ error: "Failed to extract menu from image" });
     }
   });
 

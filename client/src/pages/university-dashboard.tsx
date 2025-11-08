@@ -7,10 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Store, Plus, Star, TrendingUp } from "lucide-react";
+import { Store, Plus, Star, TrendingUp, Upload, Loader2 } from "lucide-react";
 import type { Outlet } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
+
+interface ExtractedDish {
+  name: string;
+  price: number;
+  description?: string;
+  category?: string;
+  isVeg?: boolean;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  sugar?: number;
+}
 
 export default function UniversityDashboard() {
   const { user } = useAuth();
@@ -22,6 +36,9 @@ export default function UniversityDashboard() {
     description: "",
     averagePrice: "",
   });
+  const [menuImageUrl, setMenuImageUrl] = useState("");
+  const [extractedDishes, setExtractedDishes] = useState<ExtractedDish[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Redirect if not university admin or app admin
   if (user && user.role !== "university_admin" && user.role !== "app_admin") {
@@ -33,21 +50,92 @@ export default function UniversityDashboard() {
     queryKey: ['/api/outlets'],
   });
 
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest<{ uploadURL: string }>("POST", "/api/objects/upload", {});
+    return {
+      method: "PUT" as const,
+      url: response.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful[0]) {
+      const uploadedUrl = result.successful[0].uploadURL as string;
+      
+      await apiRequest("POST", "/api/objects/set-acl", {
+        objectURL: uploadedUrl,
+        visibility: "public",
+      });
+
+      setMenuImageUrl(uploadedUrl);
+
+      setIsExtracting(true);
+      try {
+        const extractResponse = await apiRequest<{ dishes: ExtractedDish[] }>("POST", "/api/menu/extract", {
+          menuImageUrl: uploadedUrl,
+        });
+
+        setExtractedDishes(extractResponse.dishes);
+        toast({
+          title: "Menu extracted successfully",
+          description: `Found ${extractResponse.dishes.length} dishes from the menu photo`,
+        });
+      } catch (error) {
+        toast({
+          title: "Extraction failed",
+          description: "Could not extract dishes from the menu photo. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsExtracting(false);
+      }
+    }
+  };
+
   const createOutletMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return await apiRequest("POST", "/api/outlets", {
+      if (!user?.universityId) {
+        throw new Error("University not set");
+      }
+
+      const outletResponse = await apiRequest<{ id: string }>("POST", "/api/outlets", {
         name: data.name,
         description: data.description,
         averagePrice: parseInt(data.averagePrice) || 100,
+        universityId: user.universityId,
+        imageUrl: menuImageUrl || null,
       });
+
+      if (extractedDishes.length > 0) {
+        await Promise.all(
+          extractedDishes.map((dish) =>
+            apiRequest("POST", "/api/dishes", {
+              outletId: outletResponse.id,
+              name: dish.name,
+              description: dish.description || "",
+              price: dish.price,
+              category: dish.category || "main_course",
+              isVeg: dish.isVeg ?? true,
+              calories: dish.calories,
+              protein: dish.protein,
+              carbs: dish.carbs,
+              sugar: dish.sugar,
+            })
+          )
+        );
+      }
+
+      return outletResponse;
     },
     onSuccess: () => {
       toast({
         title: "Success!",
-        description: "Outlet created successfully",
+        description: `Outlet created with ${extractedDishes.length} dishes`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/outlets'] });
       setFormData({ name: "", description: "", averagePrice: "" });
+      setMenuImageUrl("");
+      setExtractedDishes([]);
     },
     onError: (error: Error) => {
       toast({
@@ -122,6 +210,50 @@ export default function UniversityDashboard() {
                   value={formData.averagePrice}
                   onChange={(e) => setFormData({ ...formData, averagePrice: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Menu Photo (Optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Upload a menu photo and we'll automatically extract all dishes using AI
+                </p>
+                <ObjectUploader
+                  maxNumberOfFiles={1}
+                  maxFileSize={10485760}
+                  onGetUploadParameters={handleGetUploadParameters}
+                  onComplete={handleUploadComplete}
+                >
+                  <div className="flex items-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    <span>Upload Menu Photo</span>
+                  </div>
+                </ObjectUploader>
+                {isExtracting && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Extracting dishes from menu photo...
+                  </p>
+                )}
+                {extractedDishes.length > 0 && (
+                  <div className="mt-3 p-3 bg-muted rounded-lg">
+                    <p className="text-sm font-medium mb-2" data-testid="text-dishes-extracted">
+                      Extracted {extractedDishes.length} dishes:
+                    </p>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {extractedDishes.map((dish, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs p-2 bg-background rounded border"
+                          data-testid={`dish-item-${idx}`}
+                        >
+                          <span className="font-medium">{dish.name}</span> - ₹{dish.price}
+                          {dish.description && (
+                            <p className="text-muted-foreground mt-0.5">{dish.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <Button 
                 type="submit" 
