@@ -30,7 +30,7 @@ export class GeminiService {
 
   async extractMenuFromImage(imageUrl: string): Promise<MenuExtractionResult> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
       const imageResponse = await fetch(imageUrl);
       const imageBuffer = await imageResponse.arrayBuffer();
