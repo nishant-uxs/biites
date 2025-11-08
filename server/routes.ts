@@ -209,6 +209,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get university admin details (email only, no password)
+  app.get('/api/admin/universities/:id/admin', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const universityId = req.params.id;
+      const adminUser = await storage.getUserByUniversityAndRole(universityId, 'university_admin');
+      
+      if (!adminUser) {
+        return res.status(404).json({ message: "University admin not found" });
+      }
+      
+      // Return safe user data (no password)
+      res.json({
+        id: adminUser.id,
+        email: adminUser.email,
+        firstName: adminUser.firstName,
+        lastName: adminUser.lastName,
+        role: adminUser.role,
+        universityId: adminUser.universityId,
+        createdAt: adminUser.createdAt,
+      });
+    } catch (error) {
+      console.error("Error fetching university admin:", error);
+      res.status(500).json({ message: "Failed to fetch university admin" });
+    }
+  });
+
+  // Reset university admin password
+  app.patch('/api/admin/universities/:id/admin/reset-password', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const universityId = req.params.id;
+      const adminUser = await storage.getUserByUniversityAndRole(universityId, 'university_admin');
+      
+      if (!adminUser) {
+        return res.status(404).json({ message: "University admin not found" });
+      }
+      
+      // Generate new password
+      const newPassword = generatePassword(16);
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      console.log(`[Password Reset] University Admin: ${adminUser.email}`);
+      console.log(`[Password Reset] New Password: ${newPassword}`);
+      
+      // Update password
+      await storage.updateUserPassword(adminUser.id, hashedPassword);
+      
+      res.json({
+        email: adminUser.email,
+        password: newPassword, // Return plain password (shown once)
+        userId: adminUser.id,
+      });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Delete university (with cascade)
+  app.delete('/api/admin/universities/:id', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const universityId = req.params.id;
+      
+      // Check if university exists
+      const university = await storage.getUniversity(universityId);
+      if (!university) {
+        return res.status(404).json({ message: "University not found" });
+      }
+      
+      console.log(`[Delete University] Deleting: ${university.name} (${universityId})`);
+      
+      // Delete university (cascade will handle outlets, dishes, etc.)
+      await storage.deleteUniversity(universityId);
+      
+      res.json({ message: "University deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting university:", error);
+      res.status(500).json({ message: "Failed to delete university" });
+    }
+  });
+
   // ===== ADMIN USER MANAGEMENT =====
   
   app.get('/api/admin/users', isAuthenticated, isAppAdmin, async (req: any, res) => {

@@ -82,6 +82,7 @@ export default function AdminDashboard() {
     password: string;
   } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [resetPasswordUniversityId, setResetPasswordUniversityId] = useState<string | null>(null);
 
   const form = useForm<UniversityFormValues>({
     resolver: zodResolver(universitySchema),
@@ -160,6 +161,50 @@ export default function AdminDashboard() {
       toast({
         title: "Success",
         description: "User deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (universityId: string) => {
+      const response = await apiRequest("PATCH", `/api/admin/universities/${universityId}/admin/reset-password`);
+      return await response.json();
+    },
+    onSuccess: (response: any) => {
+      setGeneratedCredentials(response);
+      setShowCredentials(true);
+      setResetPasswordUniversityId(null);
+      toast({
+        title: "Password Reset",
+        description: "New password generated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteUniversityMutation = useMutation({
+    mutationFn: async (universityId: string) => {
+      await apiRequest("DELETE", `/api/admin/universities/${universityId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/universities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
+      toast({
+        title: "Success",
+        description: "University deleted successfully",
       });
     },
     onError: (error: Error) => {
@@ -397,7 +442,16 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {universities.map((university) => (
-                      <UniversityCard key={university.id} university={university} />
+                      <UniversityCard 
+                        key={university.id} 
+                        university={university}
+                        onResetPassword={() => resetPasswordMutation.mutate(university.id)}
+                        onDelete={() => {
+                          if (confirm(`Delete ${university.name}? This will remove all outlets, dishes, and orders. This action cannot be undone.`)) {
+                            deleteUniversityMutation.mutate(university.id);
+                          }
+                        }}
+                      />
                     ))}
                   </div>
                 )}
@@ -562,10 +616,22 @@ export default function AdminDashboard() {
   );
 }
 
-function UniversityCard({ university }: { university: University }) {
+function UniversityCard({ 
+  university, 
+  onResetPassword,
+  onDelete 
+}: { 
+  university: University;
+  onResetPassword: () => void;
+  onDelete: () => void;
+}) {
   const { data: stats, isLoading } = useQuery<UniversityStats>({
     queryKey: ['/api/admin/universities', university.id, 'stats'],
     retry: 2,
+  });
+
+  const { data: adminData } = useQuery<{ email: string }>({
+    queryKey: ['/api/admin/universities', university.id, 'admin'],
   });
 
   return (
@@ -589,6 +655,11 @@ function UniversityCard({ university }: { university: University }) {
                   <Code className="w-3 h-3" />
                   {university.code}
                 </div>
+                {adminData && (
+                  <div className="flex items-center gap-1 text-xs font-mono">
+                    {adminData.email}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -610,6 +681,26 @@ function UniversityCard({ university }: { university: University }) {
                 {isLoading ? "..." : stats?.orderCount || 0}
               </p>
               <p className="text-xs text-muted-foreground">Orders</p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={onResetPassword}
+                title="Reset Admin Password"
+                data-testid={`button-reset-password-${university.id}`}
+              >
+                <Shield className="w-4 h-4" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="destructive" 
+                onClick={onDelete}
+                title="Delete University"
+                data-testid={`button-delete-university-${university.id}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>

@@ -187,6 +187,24 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
   }
 
+  async getUserByUniversityAndRole(universityId: string, role: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(
+        sql`${users.universityId} = ${universityId} AND ${users.role} = ${role}`
+      )
+      .limit(1);
+    return user || undefined;
+  }
+
+  async updateUserPassword(userId: string, newHashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: newHashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
   // ===== UNIVERSITY OPERATIONS =====
   
   async getUniversities(): Promise<University[]> {
@@ -204,6 +222,11 @@ export class DatabaseStorage implements IStorage {
       .values(universityData)
       .returning();
     return university;
+  }
+
+  async deleteUniversity(id: string): Promise<void> {
+    // Database CASCADE will handle deleting outlets, dishes, users, etc.
+    await db.delete(universities).where(eq(universities.id, id));
   }
 
   // ===== OUTLET OPERATIONS =====
