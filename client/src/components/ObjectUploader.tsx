@@ -4,36 +4,41 @@ import Uppy from "@uppy/core";
 import { DashboardModal } from "@uppy/react";
 import AwsS3 from "@uppy/aws-s3";
 import type { UploadResult } from "@uppy/core";
-import { Button } from "@/components/ui/button";
 
 interface ObjectUploaderProps {
-  maxNumberOfFiles?: number;
-  maxFileSize?: number;
   onGetUploadParameters: () => Promise<{
     method: "PUT";
     url: string;
   }>;
-  onComplete?: (
+  onUploadComplete?: (
     result: UploadResult<Record<string, unknown>, Record<string, unknown>>
   ) => void;
-  buttonClassName?: string;
-  children: ReactNode;
+  accept?: string;
+  allowedMetaFields?: string[];
+  restrictions?: {
+    maxFileSize?: number;
+    maxNumberOfFiles?: number;
+    minNumberOfFiles?: number;
+    allowedFileTypes?: string[];
+  };
+  render?: (props: { browseFiles: () => void }) => ReactNode;
 }
 
 export function ObjectUploader({
-  maxNumberOfFiles = 1,
-  maxFileSize = 10485760,
   onGetUploadParameters,
-  onComplete,
-  buttonClassName,
-  children,
+  onUploadComplete,
+  accept,
+  allowedMetaFields = [],
+  restrictions = {},
+  render,
 }: ObjectUploaderProps) {
   const [showModal, setShowModal] = useState(false);
   const [uppy] = useState(() =>
     new Uppy({
       restrictions: {
-        maxNumberOfFiles,
-        maxFileSize,
+        maxNumberOfFiles: restrictions.maxNumberOfFiles || 1,
+        maxFileSize: restrictions.maxFileSize || 10485760,
+        allowedFileTypes: restrictions.allowedFileTypes || undefined,
       },
       autoProceed: false,
     })
@@ -42,15 +47,17 @@ export function ObjectUploader({
         getUploadParameters: onGetUploadParameters,
       })
       .on("complete", (result) => {
-        onComplete?.(result);
+        onUploadComplete?.(result);
       })
   );
 
+  const browseFiles = () => {
+    setShowModal(true);
+  };
+
   return (
     <div>
-      <Button onClick={() => setShowModal(true)} className={buttonClassName} data-testid="button-upload-menu">
-        {children}
-      </Button>
+      {render?.({ browseFiles })}
 
       <DashboardModal
         uppy={uppy}
