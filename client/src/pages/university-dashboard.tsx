@@ -7,12 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Store, Plus, Star, TrendingUp, Upload, Loader2 } from "lucide-react";
+import { Store, Plus, Star, TrendingUp, Upload, Loader2, Copy, Check } from "lucide-react";
 import type { Outlet } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ExtractedDish {
   name: string;
@@ -40,6 +47,13 @@ export default function UniversityDashboard() {
   const [extractedDishes, setExtractedDishes] = useState<ExtractedDish[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState(false);
+  
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Redirect if not university admin or app admin
   if (user && user.role !== "university_admin" && user.role !== "app_admin") {
@@ -51,11 +65,18 @@ export default function UniversityDashboard() {
     queryKey: ['/api/outlets'],
   });
 
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest<{ uploadURL: string }>("POST", "/api/objects/upload", {});
+    const response = await apiRequest("POST", "/api/objects/upload", {});
+    const data: any = await response.json();
     return {
       method: "PUT" as const,
-      url: response.uploadURL,
+      url: data.uploadURL,
     };
   };
 
@@ -73,15 +94,16 @@ export default function UniversityDashboard() {
 
       setIsExtracting(true);
       try {
-        const extractResponse = await apiRequest<{ dishes: ExtractedDish[] }>("POST", "/api/menu/extract", {
+        const extractResponse = await apiRequest("POST", "/api/menu/extract", {
           menuImageUrl: uploadedUrl,
         });
+        const extractData: any = await extractResponse.json();
 
-        setExtractedDishes(extractResponse.dishes);
+        setExtractedDishes(extractData.dishes);
         setExtractionError(false);
         toast({
           title: "Menu extracted successfully",
-          description: `Found ${extractResponse.dishes.length} dishes from the menu photo`,
+          description: `Found ${extractData.dishes.length} dishes from the menu photo`,
         });
       } catch (error) {
         setExtractedDishes([]);
@@ -104,19 +126,22 @@ export default function UniversityDashboard() {
         throw new Error("University not set");
       }
 
-      const outletResponse = await apiRequest<{ id: string }>("POST", "/api/outlets", {
+      const outletResponse = await apiRequest("POST", "/api/outlets", {
         name: data.name,
         description: data.description,
         averagePrice: parseInt(data.averagePrice) || 100,
         universityId: user.universityId,
         imageUrl: menuImageUrl || null,
       });
+      
+      const outletData: any = await outletResponse.json();
 
+      // Create dishes if extracted
       if (extractedDishes.length > 0) {
         await Promise.all(
           extractedDishes.map((dish) =>
             apiRequest("POST", "/api/dishes", {
-              outletId: outletResponse.id,
+              outletId: outletData.outlet.id,
               name: dish.name,
               description: dish.description || "",
               price: dish.price,
@@ -131,13 +156,11 @@ export default function UniversityDashboard() {
         );
       }
 
-      return outletResponse;
+      return outletData;
     },
-    onSuccess: () => {
-      toast({
-        title: "Success!",
-        description: `Outlet created with ${extractedDishes.length} dishes`,
-      });
+    onSuccess: (response: any) => {
+      setGeneratedCredentials(response.credentials);
+      setShowCredentials(true);
       queryClient.invalidateQueries({ queryKey: ['/api/outlets'] });
       setFormData({ name: "", description: "", averagePrice: "" });
       setMenuImageUrl("");
@@ -329,6 +352,77 @@ export default function UniversityDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Credentials Dialog */}
+      <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Outlet Owner Credentials</DialogTitle>
+            <DialogDescription>
+              Save these credentials securely. The password will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={generatedCredentials?.email || ""}
+                  data-testid="text-generated-outlet-email"
+                  className="flex-1"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => copyToClipboard(generatedCredentials?.email || "", "email")}
+                  data-testid="button-copy-outlet-email"
+                >
+                  {copiedField === "email" ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={generatedCredentials?.password || ""}
+                  data-testid="text-generated-outlet-password"
+                  className="flex-1 font-mono"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => copyToClipboard(generatedCredentials?.password || "", "password")}
+                  data-testid="button-copy-outlet-password"
+                >
+                  {copiedField === "password" ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                These credentials are for the outlet owner to log in and manage orders.
+                Make sure to save them before closing this dialog.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setShowCredentials(false)} data-testid="button-close-outlet-credentials">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

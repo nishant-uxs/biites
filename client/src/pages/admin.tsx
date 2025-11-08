@@ -6,10 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Store, ShoppingBag } from "lucide-react";
+import { Building2, Plus, Users, Store, ShoppingBag, Copy, Check } from "lucide-react";
 import type { University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface PlatformAnalytics {
   totalUsers: number;
@@ -78,6 +85,13 @@ export default function AdminDashboard() {
     location: "",
     code: "",
   });
+  
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Redirect if not app admin
   if (user && user.role !== "app_admin") {
@@ -93,16 +107,22 @@ export default function AdminDashboard() {
     queryKey: ['/api/admin/analytics'],
   });
 
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   const createUniversityMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return await apiRequest("POST", "/api/admin/universities", data);
+      const response = await apiRequest("POST", "/api/admin/universities", data);
+      return await response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Success!",
-        description: "University created successfully",
-      });
+    onSuccess: (response: any) => {
+      setGeneratedCredentials(response.credentials);
+      setShowCredentials(true);
       queryClient.invalidateQueries({ queryKey: ['/api/universities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
       setFormData({ name: "", location: "", code: "" });
     },
     onError: (error: Error) => {
@@ -292,6 +312,77 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Credentials Dialog */}
+      <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>University Admin Credentials</DialogTitle>
+            <DialogDescription>
+              Save these credentials securely. The password will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={generatedCredentials?.email || ""}
+                  data-testid="text-generated-email"
+                  className="flex-1"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => copyToClipboard(generatedCredentials?.email || "", "email")}
+                  data-testid="button-copy-email"
+                >
+                  {copiedField === "email" ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={generatedCredentials?.password || ""}
+                  data-testid="text-generated-password"
+                  className="flex-1 font-mono"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => copyToClipboard(generatedCredentials?.password || "", "password")}
+                  data-testid="button-copy-password"
+                >
+                  {copiedField === "password" ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                These credentials are for the university admin to log in and manage outlets.
+                Make sure to save them before closing this dialog.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setShowCredentials(false)} data-testid="button-close-credentials">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
