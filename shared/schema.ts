@@ -135,7 +135,7 @@ export const orders = pgTable("orders", {
   userId: varchar("user_id").notNull().references(() => users.id),
   outletId: varchar("outlet_id").notNull().references(() => outlets.id),
   groupOrderId: varchar("group_order_id").references(() => groupOrders.id),
-  status: varchar("status").notNull().default("placed"), // "placed", "preparing", "ready", "completed", "cancelled"
+  status: varchar("status").notNull().default("pending"), // "pending" (awaiting confirmation), "confirmed", "preparing", "ready", "completed", "cancelled"
   paymentMethod: varchar("payment_method").notNull().default("cash"), // "cash" or "upi"
   paymentStatus: varchar("payment_status").notNull().default("pending"), // "pending", "completed"
   totalAmount: integer("total_amount").notNull(),

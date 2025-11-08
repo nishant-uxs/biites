@@ -732,10 +732,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/orders/:id/status', isAuthenticated, async (req, res) => {
+  // Update order status (outlet owner only)
+  app.patch('/api/orders/:id/status', isAuthenticated, isOutletOwner, async (req: any, res) => {
     try {
       const { status } = req.body;
-      await storage.updateOrderStatus(req.params.id, status);
+      const orderId = req.params.id;
+      
+      // Get current order to validate
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Check if outlet owner owns this order's outlet
+      const outlet = await storage.getOutletByOwnerId(req.dbUser.id);
+      if (!outlet || outlet.id !== order.outletId) {
+        return res.status(403).json({ message: "Not authorized to update this order" });
+      }
+      
+      // Define valid status transitions
+      const validTransitions: Record<string, string[]> = {
+        'pending': ['confirmed', 'cancelled'],
+        'confirmed': ['preparing', 'cancelled'],
+        'preparing': ['ready', 'cancelled'],
+        'ready': ['completed', 'cancelled'],
+        'completed': [], // No transitions from completed
+        'cancelled': []  // No transitions from cancelled
+      };
+      
+      const currentStatus = order.status;
+      const allowedNextStatuses = validTransitions[currentStatus] || [];
+      
+      if (!allowedNextStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: `Invalid status transition from '${currentStatus}' to '${status}'`,
+          allowedStatuses: allowedNextStatuses
+        });
+      }
+      
+      await storage.updateOrderStatus(orderId, status);
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating order status:", error);

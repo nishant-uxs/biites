@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2 } from "lucide-react";
+import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2, Bell, CheckCircle, X, Check } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,6 +47,164 @@ const categoryIcons = {
   beverage: Coffee,
   snacks: Package,
 };
+
+// OrderCard component for displaying individual orders with actions
+function OrderCard({ order }: { order: Order }) {
+  const [showQR, setShowQR] = useState(false);
+  
+  const updateStatusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      await apiRequest("PATCH", `/api/orders/${order.id}/status`, { status: newStatus });
+    },
+    onSuccess: () => {
+      // Invalidate both the orders list and outlet details
+      queryClient.invalidateQueries({ queryKey: [`/api/outlet/${order.outletId}/orders`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/outlet/my'] });
+      toast({
+        title: "Order updated",
+        description: "Order status has been updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'confirmed': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'preparing': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'ready': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'completed': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  return (
+    <Card className="hover-elevate">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-lg">Order #{order.id.slice(-6)}</span>
+              <Badge className={getStatusColor(order.status)}>
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              }) : 'N/A'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold text-xl">₹{order.totalAmount}</p>
+            <p className="text-xs text-muted-foreground uppercase">{order.paymentMethod}</p>
+          </div>
+        </div>
+        
+        {order.specialInstructions && (
+          <div className="mb-3 p-2 bg-muted rounded text-sm">
+            <span className="font-medium">Note: </span>{order.specialInstructions}
+          </div>
+        )}
+        
+        {/* Action Buttons Based on Status */}
+        <div className="flex gap-2 flex-wrap">
+          {order.status === 'pending' && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => updateStatusMutation.mutate('confirmed')}
+                disabled={updateStatusMutation.isPending}
+                data-testid={`button-confirm-${order.id}`}
+              >
+                <Check className="w-4 h-4 mr-1" />
+                Confirm Order
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => updateStatusMutation.mutate('cancelled')}
+                disabled={updateStatusMutation.isPending}
+                data-testid={`button-cancel-${order.id}`}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Cancel
+              </Button>
+            </>
+          )}
+          
+          {order.status === 'confirmed' && (
+            <Button
+              size="sm"
+              onClick={() => updateStatusMutation.mutate('preparing')}
+              disabled={updateStatusMutation.isPending}
+              data-testid={`button-start-preparing-${order.id}`}
+            >
+              <ChefHat className="w-4 h-4 mr-1" />
+              Start Preparing
+            </Button>
+          )}
+          
+          {order.status === 'preparing' && (
+            <Button
+              size="sm"
+              onClick={() => updateStatusMutation.mutate('ready')}
+              disabled={updateStatusMutation.isPending}
+              data-testid={`button-mark-ready-${order.id}`}
+            >
+              <Package className="w-4 h-4 mr-1" />
+              Mark Ready
+            </Button>
+          )}
+          
+          {order.status === 'ready' && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowQR(!showQR)}
+                data-testid={`button-show-qr-${order.id}`}
+              >
+                <Package className="w-4 h-4 mr-1" />
+                {showQR ? 'Hide' : 'Show'} QR Code
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => updateStatusMutation.mutate('completed')}
+                disabled={updateStatusMutation.isPending}
+                data-testid={`button-complete-${order.id}`}
+              >
+                <CheckCircle className="w-4 h-4 mr-1" />
+                Mark Completed
+              </Button>
+            </>
+          )}
+        </div>
+        
+        {/* QR Code Display */}
+        {showQR && order.status === 'ready' && (
+          <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg border text-center">
+            <p className="text-sm font-medium mb-2">Pickup Verification QR Code</p>
+            <div className="inline-block p-3 bg-white rounded">
+              <QRCodeSVG value={order.qrCode} size={150} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Ask customer to scan this QR code for pickup verification
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function OutletDashboard() {
   const { user } = useAuth();
@@ -813,50 +972,111 @@ export default function OutletDashboard() {
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Orders</CardTitle>
-                <CardDescription>Manage and track your outlet's orders</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {orders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No orders yet
+            {/* Pending Orders - Needs Confirmation */}
+            {orders.filter(o => o.status === 'pending').length > 0 && (
+              <Card className="border-yellow-200 dark:border-yellow-900">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-yellow-600" />
+                    <CardTitle>New Orders - Awaiting Confirmation</CardTitle>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {orders.map((order) => (
-                      <Card key={order.id}>
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">Order #{order.id.slice(-6)}</span>
-                                <Badge variant={
-                                  order.status === "completed" ? "default" :
-                                  order.status === "placed" ? "secondary" :
-                                  order.status === "preparing" ? "destructive" :
-                                  "outline"
-                                }>
-                                  {order.status}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-semibold">₹{order.totalAmount}</p>
-                              <p className="text-sm text-muted-foreground">{order.paymentMethod}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                  <CardDescription>Confirm these orders to start preparing</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {orders.filter(o => o.status === 'pending').map((order) => (
+                      <OrderCard key={order.id} order={order} />
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Confirmed Orders */}
+            {orders.filter(o => o.status === 'confirmed').length > 0 && (
+              <Card className="border-blue-200 dark:border-blue-900">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle>Confirmed Orders</CardTitle>
+                  </div>
+                  <CardDescription>Ready to start preparing</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {orders.filter(o => o.status === 'confirmed').map((order) => (
+                      <OrderCard key={order.id} order={order} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Preparing Orders */}
+            {orders.filter(o => o.status === 'preparing').length > 0 && (
+              <Card className="border-orange-200 dark:border-orange-900">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <ChefHat className="w-5 h-5 text-orange-600" />
+                    <CardTitle>Preparing Orders</CardTitle>
+                  </div>
+                  <CardDescription>Currently being prepared</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {orders.filter(o => o.status === 'preparing').map((order) => (
+                      <OrderCard key={order.id} order={order} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Ready Orders */}
+            {orders.filter(o => o.status === 'ready').length > 0 && (
+              <Card className="border-green-200 dark:border-green-900">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-green-600" />
+                    <CardTitle>Ready for Pickup</CardTitle>
+                  </div>
+                  <CardDescription>Waiting for customer pickup</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {orders.filter(o => o.status === 'ready').map((order) => (
+                      <OrderCard key={order.id} order={order} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Completed Orders */}
+            {orders.filter(o => o.status === 'completed').length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Completed Orders</CardTitle>
+                  <CardDescription>Recently completed orders</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {orders.filter(o => o.status === 'completed').slice(0, 5).map((order) => (
+                      <OrderCard key={order.id} order={order} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {orders.length === 0 && (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No orders yet</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
