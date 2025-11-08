@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { RewardWheel } from "@/components/reward-wheel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,7 @@ export default function Rewards() {
   const spinMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', '/api/rewards/spin', {});
-      return response;
+      return response.json();
     },
     onSuccess: (reward) => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });

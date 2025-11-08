@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Utensils, Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Login() {
   const { toast } = useToast();
+  const { refreshUser } = useAuth();
+  const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +24,8 @@ export default function Login() {
 
     try {
       await apiRequest("POST", "/api/auth/login", { email, password });
-      window.location.href = "/";
+      await refreshUser(); // Refresh user state immediately after login
+      setLocation("/"); // Navigate to root, RoleBasedRedirect will handle the rest
     } catch (error: any) {
       toast({
         title: "Login Failed",

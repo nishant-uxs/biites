@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,13 +35,10 @@ export default function UniversityDashboard() {
 
   const createOutletMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return await apiRequest("/api/outlets", {
-        method: "POST",
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description,
-          averagePrice: parseInt(data.averagePrice) || 100,
-        }),
+      return await apiRequest("POST", "/api/outlets", {
+        name: data.name,
+        description: data.description,
+        averagePrice: parseInt(data.averagePrice) || 100,
       });
     },
     onSuccess: () => {

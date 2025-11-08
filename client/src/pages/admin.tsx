@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,10 +34,7 @@ export default function AdminDashboard() {
 
   const createUniversityMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return await apiRequest("/api/admin/universities", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/admin/universities", data);
     },
     onSuccess: () => {
       toast({

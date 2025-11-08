@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { TrendingUp, Heart, LogOut, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Outlet, Dish, University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -40,7 +40,9 @@ export default function Home() {
       const response = await apiRequest("PATCH", "/api/auth/user/university", { universityId });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Note: This mutation is deprecated - university selection is now handled in /select-university
+      // This code path should not be reached anymore with the new auth flow
       toast({
         title: "Welcome!",
         description: "University selected successfully",
@@ -94,7 +96,7 @@ export default function Home() {
   return (
     <div className="min-h-screen pb-20">
       {/* University Selection Dialog */}
-      <Dialog open={showUniversityDialog} onOpenChange={() => {}}>
+      <Dialog open={!!showUniversityDialog} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
