@@ -123,6 +123,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/analytics', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const analytics = await storage.getPlatformAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching platform analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get('/api/admin/universities/:id/stats', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const stats = await storage.getUniversityStats(req.params.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching university stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   // ===== OUTLET ROUTES =====
   
   app.get('/api/outlets', isAuthenticated, async (req: any, res) => {

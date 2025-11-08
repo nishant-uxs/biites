@@ -96,6 +96,21 @@ export interface IStorage {
   
   // Leaderboard
   getLeaderboard(limit?: number): Promise<any[]>;
+  
+  // Admin Analytics
+  getPlatformAnalytics(): Promise<{
+    totalUsers: number;
+    totalStudents: number;
+    totalUniversities: number;
+    totalOutlets: number;
+    totalOrders: number;
+    totalRevenue: number;
+  }>;
+  getUniversityStats(universityId: string): Promise<{
+    outletCount: number;
+    studentCount: number;
+    orderCount: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -573,6 +588,80 @@ export class DatabaseStorage implements IStorage {
       ...entry,
       rank: index + 1,
     }));
+  }
+
+  // ===== ADMIN ANALYTICS =====
+
+  async getPlatformAnalytics() {
+    // Use separate queries to avoid Cartesian product issues
+    const [userStats] = await db
+      .select({
+        totalUsers: sql<number>`count(*)::int`,
+        totalStudents: sql<number>`count(CASE WHEN ${users.role} = 'student' THEN 1 END)::int`,
+      })
+      .from(users);
+
+    const [universityStats] = await db
+      .select({
+        totalUniversities: sql<number>`count(*)::int`,
+      })
+      .from(universities);
+
+    const [outletStats] = await db
+      .select({
+        totalOutlets: sql<number>`count(*)::int`,
+      })
+      .from(outlets);
+
+    const [orderStats] = await db
+      .select({
+        totalOrders: sql<number>`count(*)::int`,
+        totalRevenue: sql<number>`COALESCE(SUM(${orders.totalAmount}), 0)::numeric`,
+      })
+      .from(orders);
+
+    return {
+      totalUsers: userStats.totalUsers,
+      totalStudents: userStats.totalStudents,
+      totalUniversities: universityStats.totalUniversities,
+      totalOutlets: outletStats.totalOutlets,
+      totalOrders: orderStats.totalOrders,
+      totalRevenue: orderStats.totalRevenue,
+    };
+  }
+
+  async getUniversityStats(universityId: string) {
+    // Use separate queries to avoid issues with zero outlets/students
+    const [outletStats] = await db
+      .select({
+        outletCount: sql<number>`count(*)::int`,
+      })
+      .from(outlets)
+      .where(eq(outlets.universityId, universityId));
+
+    const [studentStats] = await db
+      .select({
+        studentCount: sql<number>`count(*)::int`,
+      })
+      .from(users)
+      .where(and(
+        eq(users.role, 'student'),
+        eq(users.universityId, universityId)
+      ));
+
+    const [orderStats] = await db
+      .select({
+        orderCount: sql<number>`count(distinct ${orders.id})::int`,
+      })
+      .from(orders)
+      .innerJoin(outlets, eq(orders.outletId, outlets.id))
+      .where(eq(outlets.universityId, universityId));
+
+    return {
+      outletCount: outletStats.outletCount || 0,
+      studentCount: studentStats.studentCount || 0,
+      orderCount: orderStats.orderCount || 0,
+    };
   }
 }
 

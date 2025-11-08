@@ -6,10 +6,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, Store } from "lucide-react";
+import { Building2, Plus, Users, Store, ShoppingBag } from "lucide-react";
 import type { University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+
+interface PlatformAnalytics {
+  totalUsers: number;
+  totalStudents: number;
+  totalUniversities: number;
+  totalOutlets: number;
+  totalOrders: number;
+  totalRevenue: number;
+}
+
+interface UniversityStats {
+  outletCount: number;
+  studentCount: number;
+  orderCount: number;
+}
+
+function UniversityCard({ university }: { university: University }) {
+  const { data: stats, isLoading, isError } = useQuery<UniversityStats>({
+    queryKey: ['/api/admin/universities', university.id, 'stats'],
+    retry: 2,
+  });
+
+  return (
+    <div
+      className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border"
+      data-testid={`university-card-${university.id}`}
+    >
+      <div>
+        <h3 className="font-semibold text-lg" data-testid={`text-university-name-${university.id}`}>
+          {university.name}
+        </h3>
+        <p className="text-sm text-muted-foreground">{university.location}</p>
+        <p className="text-xs text-muted-foreground mt-1">Code: {university.code}</p>
+      </div>
+      <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-1">
+          <Store className="w-4 h-4 text-primary" />
+          <span className="font-medium" data-testid={`text-outlets-${university.id}`}>
+            {isError ? "Error" : isLoading ? "..." : `${stats?.outletCount || 0} outlets`}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Users className="w-4 h-4 text-primary" />
+          <span className="font-medium" data-testid={`text-students-${university.id}`}>
+            {isError ? "Error" : isLoading ? "..." : `${stats?.studentCount || 0} students`}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <ShoppingBag className="w-4 h-4 text-primary" />
+          <span className="font-medium" data-testid={`text-orders-${university.id}`}>
+            {isError ? "Error" : isLoading ? "..." : `${stats?.orderCount || 0} orders`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -30,6 +87,10 @@ export default function AdminDashboard() {
 
   const { data: universities = [] } = useQuery<University[]>({
     queryKey: ['/api/universities'],
+  });
+
+  const { data: analytics, isLoading: analyticsLoading, isError: analyticsError } = useQuery<PlatformAnalytics>({
+    queryKey: ['/api/admin/analytics'],
   });
 
   const createUniversityMutation = useMutation({
@@ -68,7 +129,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen pb-20 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -76,6 +137,82 @@ export default function AdminDashboard() {
             <p className="text-muted-foreground mt-1">Manage universities across Campus Biites</p>
           </div>
         </div>
+
+        {/* Platform Analytics */}
+        {analyticsLoading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="text-sm text-muted-foreground mt-2">Loading analytics...</p>
+          </div>
+        )}
+        
+        {analyticsError && (
+          <Card>
+            <CardContent className="py-6 text-center">
+              <p className="text-destructive">Failed to load analytics. Please try again later.</p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {analytics && !analyticsLoading && !analyticsError && (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-users">{analytics.totalUsers}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-students">{analytics.totalStudents}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Universities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-universities">{analytics.totalUniversities}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Outlets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-outlets">{analytics.totalOutlets}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-orders">{analytics.totalOrders}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-revenue">
+                  ₹{parseFloat(analytics.totalRevenue as any).toFixed(2)}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Add University Form */}
         <Card>
@@ -142,29 +279,7 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="space-y-3">
               {universities.map((university) => (
-                <div
-                  key={university.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border"
-                  data-testid={`university-card-${university.id}`}
-                >
-                  <div>
-                    <h3 className="font-semibold text-lg" data-testid={`text-university-name-${university.id}`}>
-                      {university.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{university.location}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Code: {university.code}</p>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Store className="w-4 h-4 text-primary" />
-                      <span className="font-medium" data-testid={`text-outlets-${university.id}`}>0 outlets</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4 text-primary" />
-                      <span className="font-medium" data-testid={`text-students-${university.id}`}>0 students</span>
-                    </div>
-                  </div>
-                </div>
+                <UniversityCard key={university.id} university={university} />
               ))}
               {universities.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
