@@ -27,7 +27,7 @@ export default function SelectUniversity() {
 
   const selectUniversityMutation = useMutation({
     mutationFn: async (universityId: string) => {
-      return apiRequest("POST", "/api/auth/select-university", { universityId });
+      return apiRequest("PATCH", "/api/auth/user/university", { universityId });
     },
     onSuccess: async () => {
       // Refresh user state immediately to update auth context
