@@ -1,9 +1,9 @@
+/* Uppy File Uploader Styles */
+@import url('https://releases.transloadit.com/uppy/v3.27.3/uppy.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Uppy File Uploader Styles */
-@import url('https://releases.transloadit.com/uppy/v3.27.3/uppy.min.css');
 
 /* LIGHT MODE */
 :root {

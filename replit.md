@@ -226,3 +226,25 @@ Preferred communication style: Simple, everyday language.
 - **Data Flow**: University admin automatically assigned universityId, outlet owner inherits universityId from university admin
 - **JSON Parsing Fix**: All apiRequest responses properly parsed with .json() before accessing properties
 - **Menu Extraction**: Photo-based menu extraction with Gemini Vision API integrated into outlet creation flow
+
+## Recent Changes (Nov 8, 2025)
+
+### Data Cleanup & UI Improvements ✅
+- **Removed Mock Data**:
+  - Deleted mock "bennett university" from database
+  - Profile page leaderboard uses only real API data (no hardcoded mock entries)
+  
+- **Admin Dashboard Enhancements**:
+  - Removed hardcoded Platform Status section with fake metrics (Response Time, Uptime, Active Sessions)
+  - Added expandable University Details view - admins can now click any university card to see all its outlets
+  - Each outlet shows: name, description, dish count, open/closed status
+  - Outlets list fetched on-demand when university card is expanded
+  
+- **Security & Authentication Fixes**:
+  - Fixed session deserialization error handling - gracefully clears invalid sessions instead of crashing
+  - All gamification endpoints now require authentication (/api/rewards, /api/challenges, /api/badges, /api/leaderboard)
+  - Added new admin endpoint: `/api/admin/universities/:id/outlets` for university details view
+  
+- **UI Bug Fixes**:
+  - Fixed DOM nesting error in Profile page (Badge component inside <p> tag)
+  - Fixed CSS @import error by moving Uppy stylesheet import to top of file
