@@ -250,39 +250,6 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Status</CardTitle>
-                <CardDescription>Real-time platform metrics and health</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-green-600" />
-                    <span className="font-medium">All Systems Operational</span>
-                  </div>
-                  <Badge variant="outline" className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
-                    Healthy
-                  </Badge>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">Response Time</p>
-                    <p className="font-semibold text-lg">45ms</p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">Uptime</p>
-                    <p className="font-semibold text-lg">99.9%</p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-muted-foreground">Active Sessions</p>
-                    <p className="font-semibold text-lg">1,234</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Universities Tab */}
