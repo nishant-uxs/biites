@@ -987,9 +987,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== OBJECT STORAGE ROUTES (Alternative endpoint for compatibility) =====
+
+  app.post("/api/object-storage/upload-url", isAuthenticated, async (req: any, res) => {
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    res.json({ uploadUrl: uploadURL });
+  });
+
   // ===== MENU EXTRACTION ROUTES =====
 
-  app.post("/api/menu/extract", isAuthenticated, isUniversityAdmin, async (req: any, res) => {
+  app.post("/api/menu/extract", isAuthenticated, async (req: any, res) => {
     try {
       const { menuImageUrl } = req.body;
 
