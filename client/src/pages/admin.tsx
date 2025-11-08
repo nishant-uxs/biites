@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Building2, Plus, Users, Store, ShoppingBag, Copy, Check, Shield, 
   TrendingUp, IndianRupee, MapPin, Code, Activity, UserCheck, BookOpen,
-  AlertCircle, GraduationCap, ChefHat, Zap
+  AlertCircle, GraduationCap, ChefHat, Zap, Trash2, UserX
 } from "lucide-react";
 import type { University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -48,6 +48,17 @@ interface UniversityStats {
   outletCount: number;
   studentCount: number;
   orderCount: number;
+}
+
+interface AdminUser {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  universityId: string | null;
+  tokens: number;
+  createdAt: string;
 }
 
 const universitySchema = z.object({
@@ -95,6 +106,10 @@ export default function AdminDashboard() {
     queryKey: ['/api/admin/analytics'],
   });
 
+  const { data: allUsers = [], isLoading: usersLoading } = useQuery<AdminUser[]>({
+    queryKey: ['/api/admin/users'],
+  });
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -134,6 +149,27 @@ export default function AdminDashboard() {
   const handleSubmit = (values: UniversityFormValues) => {
     createUniversityMutation.mutate(values);
   };
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest("DELETE", `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Stats cards data
   const statsCards = [
@@ -212,9 +248,10 @@ export default function AdminDashboard() {
 
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+          <TabsList className="grid w-full max-w-[600px] grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="universities">Universities</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -362,6 +399,88 @@ export default function AdminDashboard() {
                     {universities.map((university) => (
                       <UniversityCard key={university.id} university={university} />
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Users Tab */}
+          <TabsContent value="users" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>View and manage all platform users</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {usersLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading users...
+                  </div>
+                ) : allUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <UserX className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No users found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="rounded-md border">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="p-3 text-left text-sm font-medium">Email</th>
+                            <th className="p-3 text-left text-sm font-medium">Name</th>
+                            <th className="p-3 text-left text-sm font-medium">Role</th>
+                            <th className="p-3 text-left text-sm font-medium">Tokens</th>
+                            <th className="p-3 text-left text-sm font-medium">Created</th>
+                            <th className="p-3 text-right text-sm font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allUsers.map((adminUser) => (
+                            <tr key={adminUser.id} className="border-b hover-elevate" data-testid={`row-user-${adminUser.id}`}>
+                              <td className="p-3 text-sm font-mono" data-testid={`text-email-${adminUser.id}`}>{adminUser.email}</td>
+                              <td className="p-3 text-sm">
+                                {adminUser.firstName || adminUser.lastName 
+                                  ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim()
+                                  : '-'}
+                              </td>
+                              <td className="p-3">
+                                <Badge variant={
+                                  adminUser.role === 'app_admin' ? 'default' : 
+                                  adminUser.role === 'university_admin' ? 'secondary' : 
+                                  adminUser.role === 'outlet_owner' ? 'outline' : 
+                                  'default'
+                                } data-testid={`badge-role-${adminUser.id}`}>
+                                  {adminUser.role.replace('_', ' ')}
+                                </Badge>
+                              </td>
+                              <td className="p-3 text-sm">{adminUser.tokens}</td>
+                              <td className="p-3 text-sm text-muted-foreground">
+                                {new Date(adminUser.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="p-3 text-right">
+                                {adminUser.id !== user?.id && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete ${adminUser.email}? This action cannot be undone.`)) {
+                                        deleteUserMutation.mutate(adminUser.id);
+                                      }
+                                    }}
+                                    disabled={deleteUserMutation.isPending}
+                                    data-testid={`button-delete-user-${adminUser.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </CardContent>

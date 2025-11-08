@@ -38,10 +38,12 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: { email: string; password: string; firstName?: string; lastName?: string; role?: string }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserTokens(userId: string, tokens: number): Promise<void>;
   updateUserUniversity(userId: string, universityId: string): Promise<void>;
+  deleteUser(id: string): Promise<void>;
   
   // University operations
   getUniversities(): Promise<University[]>;
@@ -126,6 +128,10 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
   async createUser(userData: { email: string; password: string; firstName?: string; lastName?: string; role?: string }): Promise<User> {
     const [user] = await db
       .insert(users)
@@ -177,6 +183,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
   // ===== UNIVERSITY OPERATIONS =====
   
   async getUniversities(): Promise<University[]> {
@@ -225,10 +235,6 @@ export class DatabaseStorage implements IStorage {
   async getOutletByOwnerId(ownerId: string): Promise<Outlet | undefined> {
     const [outlet] = await db.select().from(outlets).where(eq(outlets.ownerId, ownerId));
     return outlet || undefined;
-  }
-
-  async getOutletOrders(outletId: string): Promise<Order[]> {
-    return await db.select().from(orders).where(eq(orders.outletId, outletId)).orderBy(desc(orders.createdAt));
   }
 
   async updateOutletChillPeriod(id: string, isChillPeriod: boolean, endsAt?: Date): Promise<void> {

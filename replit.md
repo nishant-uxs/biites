@@ -241,6 +241,22 @@ Preferred communication style: Simple, everyday language.
 - **Admin Dashboard Enhancements**:
   - Removed hardcoded Platform Status section with fake metrics (Response Time, Uptime, Active Sessions)
   - Simplified University Cards - clean view with summary stats only (outlets, students, orders counts)
+  - **NEW: User Management Tab** - App admin can now view and manage all platform users
+    - Table view showing email, name, role, tokens, created date
+    - Delete button for each user (admin cannot delete themselves)
+    - Role-based badge styling (app_admin, university_admin, outlet_owner, student)
+    - Confirmation dialog before deletion
+  
+- **User Management API (App Admin Only)** ✅:
+  - `GET /api/admin/users` - Fetch all users (passwords excluded from response)
+  - `DELETE /api/admin/users/:id` - Delete any user (prevents self-deletion)
+  - Full role-based access control with isAppAdmin middleware
+  
+- **Login Debug Logging** ✅:
+  - Added console logging to track login attempts and password validation
+  - Logs email, password length (not actual password), hash validation result
+  - Helps debug issues with auto-generated credentials
+  - Password generation increased from 12 to 16 characters for enhanced security
   
 - **Security & Authentication Fixes**:
   - Fixed session deserialization error handling - gracefully clears invalid sessions instead of crashing
@@ -249,3 +265,4 @@ Preferred communication style: Simple, everyday language.
 - **UI Bug Fixes**:
   - Fixed DOM nesting error in Profile page (Badge component inside <p> tag)
   - Fixed CSS @import error by moving Uppy stylesheet import to top of file
+  - Fixed duplicate function implementation error in storage.ts (getOutletOrders)
