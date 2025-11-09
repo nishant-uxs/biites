@@ -778,6 +778,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QR Code verification and pickup confirmation (student only)
+  app.get('/api/orders/verify/:qrCode', isAuthenticated, async (req: any, res) => {
+    try {
+      const { qrCode } = req.params;
+      const userId = req.user.id;
+      
+      // Find order by QR code
+      const orders = await storage.getUserOrders(userId);
+      const order = orders.find(o => o.qrCode === qrCode);
+      
+      if (!order) {
+        return res.status(404).json({ 
+          message: "Order not found or you don't have permission to view this order" 
+        });
+      }
+
+      // Get order items and outlet details
+      const orderItems = await storage.getOrderItems(order.id);
+      const outlet = await storage.getOutlet(order.outletId);
+      
+      res.json({
+        order,
+        items: orderItems,
+        outlet
+      });
+    } catch (error) {
+      console.error("Error verifying QR code:", error);
+      res.status(500).json({ message: "Failed to verify QR code" });
+    }
+  });
+
+  // Confirm pickup (student only) - marks order as completed
+  app.post('/api/orders/:id/confirm-pickup', isAuthenticated, async (req: any, res) => {
+    try {
+      const orderId = req.params.id;
+      const userId = req.user.id;
+      
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Only the customer who placed the order can confirm pickup
+      if (order.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to confirm this order" });
+      }
+      
+      // Order must be ready for pickup
+      if (order.status !== 'ready') {
+        return res.status(400).json({ 
+          message: "Order is not ready for pickup yet",
+          currentStatus: order.status
+        });
+      }
+      
+      await storage.updateOrderStatus(orderId, 'completed');
+      res.json({ success: true, message: "Pickup confirmed! Enjoy your meal!" });
+    } catch (error) {
+      console.error("Error confirming pickup:", error);
+      res.status(500).json({ message: "Failed to confirm pickup" });
+    }
+  });
+
   // ===== GROUP ORDER ROUTES =====
   
   app.post('/api/group-orders', isAuthenticated, async (req: any, res) => {

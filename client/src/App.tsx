@@ -17,6 +17,7 @@ import Orders from "@/pages/orders";
 import Rewards from "@/pages/rewards";
 import Profile from "@/pages/profile";
 import OutletDetail from "@/pages/outlet-detail";
+import QRVerify from "@/pages/qr-verify";
 import AdminDashboard from "@/pages/admin";
 import UniversityDashboard from "@/pages/university-dashboard";
 import OutletDashboard from "@/pages/outlet-dashboard";
@@ -88,6 +89,12 @@ function Router() {
       <Route path="/orders">
         <ProtectedRoute allowedRoles={["student"]} requireUniversity={true}>
           <Orders />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/qr-verify">
+        <ProtectedRoute allowedRoles={["student"]} requireUniversity={true}>
+          <QRVerify />
         </ProtectedRoute>
       </Route>
 
