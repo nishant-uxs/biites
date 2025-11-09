@@ -37,13 +37,14 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    await throwIfResNotOk(res);
-    
-    // Handle 304 Not Modified and 204 No Content
-    // These have no response body, React Query will use cached data
+    // Handle 304 Not Modified and 204 No Content before error checking
+    // 304 means browser has cached data, React Query will use previous data
+    // 204 means successful request with no content
     if (res.status === 304 || res.status === 204) {
       return undefined as any;
     }
+
+    await throwIfResNotOk(res);
     
     return await res.json();
   };
