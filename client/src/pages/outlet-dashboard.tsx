@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,48 @@ const categoryIcons = {
   beverage: Coffee,
   snacks: Package,
 };
+
+// Countdown timer component for chill period
+function ChillPeriodTimer({ endsAt }: { endsAt: Date }) {
+  const [timeLeft, setTimeLeft] = useState("");
+  
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const end = endsAt.getTime();
+      const distance = end - now;
+      
+      if (distance < 0) {
+        setTimeLeft("Expired");
+        return;
+      }
+      
+      const hours = Math.floor(distance / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      
+      if (hours > 0) {
+        setTimeLeft(`${hours}h ${minutes}m`);
+      } else if (minutes > 0) {
+        setTimeLeft(`${minutes}m ${seconds}s`);
+      } else {
+        setTimeLeft(`${seconds}s`);
+      }
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
+  }, [endsAt]);
+  
+  return (
+    <Badge variant="destructive" className="gap-1 font-mono">
+      <AlertCircle className="w-3 h-3" />
+      Chill Period: {timeLeft}
+    </Badge>
+  );
+}
 
 // OrderCard component for displaying individual orders with actions
 function OrderCard({ order }: { order: Order }) {
@@ -217,6 +259,10 @@ export default function OutletDashboard() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedDishes, setExtractedDishes] = useState<any[]>([]);
   const [extractionError, setExtractionError] = useState(false);
+  
+  // Chill period state
+  const [isChillDialogOpen, setIsChillDialogOpen] = useState(false);
+  const [chillDuration, setChillDuration] = useState("30");
 
   const form = useForm<DishFormValues>({
     resolver: zodResolver(dishSchema),
@@ -348,19 +394,24 @@ export default function OutletDashboard() {
 
   // Toggle outlet chill period
   const toggleChillPeriodMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ activate, duration }: { activate: boolean; duration?: number }) => {
       if (!outlet) throw new Error("Outlet not found");
-      const response = await apiRequest("PATCH", `/api/outlets/${outlet.id}/chill-period`, {
-        isChillPeriod: !outlet.isChillPeriod,
+      const response = await apiRequest("PATCH", `/api/outlet-dashboard/chill-period`, {
+        outletId: outlet.id,
+        isChillPeriod: activate,
+        duration: duration || 30, // default 30 minutes
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/outlet/my"] });
       toast({
         title: "Success",
-        description: outlet?.isChillPeriod ? "Chill period deactivated" : "Chill period activated",
+        description: variables.activate 
+          ? `Chill period activated for ${variables.duration || 30} minutes` 
+          : "Chill period deactivated",
       });
+      setIsChillDialogOpen(false);
     },
     onError: (error: Error) => {
       toast({
@@ -498,16 +549,19 @@ export default function OutletDashboard() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-4">
-            {outlet?.isChillPeriod && (
-              <Badge variant="destructive" className="gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Chill Period Active
-              </Badge>
+            {outlet?.isChillPeriod && outlet?.chillPeriodEndsAt && (
+              <ChillPeriodTimer endsAt={new Date(outlet.chillPeriodEndsAt)} />
             )}
             <Button
               variant={outlet?.isChillPeriod ? "destructive" : "outline"}
               size="sm"
-              onClick={() => toggleChillPeriodMutation.mutate()}
+              onClick={() => {
+                if (outlet?.isChillPeriod) {
+                  toggleChillPeriodMutation.mutate({ activate: false });
+                } else {
+                  setIsChillDialogOpen(true);
+                }
+              }}
               disabled={toggleChillPeriodMutation.isPending}
               data-testid="button-toggle-chill"
             >
@@ -1080,6 +1134,68 @@ export default function OutletDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Chill Period Dialog */}
+      <Dialog open={isChillDialogOpen} onOpenChange={setIsChillDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Activate Chill Period</DialogTitle>
+            <DialogDescription>
+              Stop accepting new orders temporarily. Set how long you need to chill.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration (minutes)</Label>
+              <Input
+                id="duration"
+                type="number"
+                min="5"
+                max="480"
+                value={chillDuration}
+                onChange={(e) => setChillDuration(e.target.value)}
+                placeholder="30"
+                data-testid="input-chill-duration"
+              />
+              <p className="text-xs text-muted-foreground">
+                Recommended: 30-60 minutes for breaks, up to 8 hours max
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsChillDialogOpen(false)}
+                className="flex-1"
+                data-testid="button-cancel-chill"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const duration = parseInt(chillDuration) || 30;
+                  toggleChillPeriodMutation.mutate({ activate: true, duration });
+                }}
+                disabled={toggleChillPeriodMutation.isPending || !chillDuration}
+                className="flex-1"
+                data-testid="button-confirm-chill"
+              >
+                {toggleChillPeriodMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Activating...
+                  </>
+                ) : (
+                  <>
+                    <Power className="w-4 h-4 mr-2" />
+                    Activate
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
