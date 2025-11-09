@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Dish, Outlet, Order } from "@shared/schema";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { QRScanner } from "@/components/QRScanner";
 import type { UploadResult } from "@uppy/core";
 
 // Form schema for dish creation
@@ -266,7 +267,6 @@ export default function OutletDashboard() {
   
   // QR Scanner state
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
-  const [scannedQR, setScannedQR] = useState("");
 
   const form = useForm<DishFormValues>({
     resolver: zodResolver(dishSchema),
@@ -408,11 +408,10 @@ export default function OutletDashboard() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: outlet ? [`/api/outlet/${outlet.id}/orders`] : [] });
       toast({
-        title: "Pickup Confirmed!",
+        title: "Pickup Confirmed! ✅",
         description: `Order completed successfully`,
       });
       setIsQRScannerOpen(false);
-      setScannedQR("");
     },
     onError: (error: Error) => {
       toast({
@@ -422,6 +421,11 @@ export default function OutletDashboard() {
       });
     },
   });
+
+  // Handle QR scan from camera
+  const handleQRScan = (qrCode: string) => {
+    scanQRMutation.mutate(qrCode);
+  };
 
   // Toggle outlet chill period
   const toggleChillPeriodMutation = useMutation({
@@ -1177,65 +1181,24 @@ export default function OutletDashboard() {
 
       {/* QR Scanner Dialog */}
       <Dialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Scan Student QR Code</DialogTitle>
             <DialogDescription>
-              Ask student to show their order QR code. Enter the code below to confirm pickup.
+              Point camera at student's phone to scan their order QR code
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="qr-input">QR Code</Label>
-              <Input
-                id="qr-input"
-                value={scannedQR}
-                onChange={(e) => setScannedQR(e.target.value)}
-                placeholder="ORDER-xxxxx-xxxx-xxxx-xxxx"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && scannedQR) {
-                    scanQRMutation.mutate(scannedQR);
-                  }
-                }}
-                data-testid="input-scan-qr"
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                Student will show QR code on their phone when picking up order
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsQRScannerOpen(false);
-                  setScannedQR("");
-                }}
-                className="flex-1"
-                data-testid="button-cancel-scan"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => scanQRMutation.mutate(scannedQR)}
-                disabled={scanQRMutation.isPending || !scannedQR}
-                className="flex-1"
-                data-testid="button-confirm-scan"
-              >
-                {scanQRMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Confirm Pickup
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="pt-4">
+            <QRScanner 
+              onScan={handleQRScan}
+              onError={(error) => {
+                toast({
+                  title: "Camera Error",
+                  description: error,
+                  variant: "destructive",
+                });
+              }}
+            />
           </div>
         </DialogContent>
       </Dialog>
