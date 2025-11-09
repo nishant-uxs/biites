@@ -300,6 +300,8 @@ export default function OutletDashboard() {
   const { data: orders = [] } = useQuery<Order[]>({
     queryKey: outlet ? [`/api/outlet/${outlet.id}/orders`] : [],
     enabled: !!outlet,
+    refetchInterval: 5000, // Auto-refresh every 5 seconds for real-time updates
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 
   // Add dish mutation
