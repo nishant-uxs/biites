@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2, Bell, CheckCircle, X, Check } from "lucide-react";
+import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2, Bell, CheckCircle, X, Check, ScanLine } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -263,6 +263,10 @@ export default function OutletDashboard() {
   // Chill period state
   const [isChillDialogOpen, setIsChillDialogOpen] = useState(false);
   const [chillDuration, setChillDuration] = useState("30");
+  
+  // QR Scanner state
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [scannedQR, setScannedQR] = useState("");
 
   const form = useForm<DishFormValues>({
     resolver: zodResolver(dishSchema),
@@ -387,6 +391,33 @@ export default function OutletDashboard() {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Scan student QR and confirm pickup
+  const scanQRMutation = useMutation({
+    mutationFn: async (qrCode: string) => {
+      const response = await apiRequest("POST", `/api/orders/scan-qr`, {
+        qrCode,
+        outletId: outlet?.id,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: outlet ? [`/api/outlet/${outlet.id}/orders`] : [] });
+      toast({
+        title: "Pickup Confirmed!",
+        description: `Order completed successfully`,
+      });
+      setIsQRScannerOpen(false);
+      setScannedQR("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Scan Failed",
+        description: error.message || "Invalid QR code or order not ready",
         variant: "destructive",
       });
     },
@@ -552,6 +583,15 @@ export default function OutletDashboard() {
             {outlet?.isChillPeriod && outlet?.chillPeriodEndsAt && (
               <ChillPeriodTimer endsAt={new Date(outlet.chillPeriodEndsAt)} />
             )}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsQRScannerOpen(true)}
+              data-testid="button-scan-qr"
+            >
+              <ScanLine className="w-4 h-4 mr-2" />
+              Scan QR
+            </Button>
             <Button
               variant={outlet?.isChillPeriod ? "destructive" : "outline"}
               size="sm"
@@ -1134,6 +1174,71 @@ export default function OutletDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* QR Scanner Dialog */}
+      <Dialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Scan Student QR Code</DialogTitle>
+            <DialogDescription>
+              Ask student to show their order QR code. Enter the code below to confirm pickup.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="qr-input">QR Code</Label>
+              <Input
+                id="qr-input"
+                value={scannedQR}
+                onChange={(e) => setScannedQR(e.target.value)}
+                placeholder="ORDER-xxxxx-xxxx-xxxx-xxxx"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && scannedQR) {
+                    scanQRMutation.mutate(scannedQR);
+                  }
+                }}
+                data-testid="input-scan-qr"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Student will show QR code on their phone when picking up order
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsQRScannerOpen(false);
+                  setScannedQR("");
+                }}
+                className="flex-1"
+                data-testid="button-cancel-scan"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => scanQRMutation.mutate(scannedQR)}
+                disabled={scanQRMutation.isPending || !scannedQR}
+                className="flex-1"
+                data-testid="button-confirm-scan"
+              >
+                {scanQRMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Confirm Pickup
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Chill Period Dialog */}
       <Dialog open={isChillDialogOpen} onOpenChange={setIsChillDialogOpen}>

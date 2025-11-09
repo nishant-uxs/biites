@@ -778,66 +778,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // QR Code verification and pickup confirmation (student only)
-  app.get('/api/orders/verify/:qrCode', isAuthenticated, async (req: any, res) => {
+  // Scan student QR code (outlet owner only) and confirm pickup
+  app.post('/api/orders/scan-qr', isAuthenticated, isOutletOwner, async (req: any, res) => {
     try {
-      const { qrCode } = req.params;
+      const { qrCode, outletId } = req.body;
       const userId = req.user.id;
       
-      // Find order by QR code
-      const orders = await storage.getUserOrders(userId);
+      if (!qrCode || !outletId) {
+        return res.status(400).json({ message: "QR code and outlet ID required" });
+      }
+      
+      // Verify outlet ownership
+      const outlet = await storage.getOutlet(outletId);
+      if (!outlet || outlet.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to scan for this outlet" });
+      }
+      
+      // Find order by QR code and outlet
+      const orders = await storage.getOutletOrders(outletId);
       const order = orders.find(o => o.qrCode === qrCode);
       
       if (!order) {
         return res.status(404).json({ 
-          message: "Order not found or you don't have permission to view this order" 
+          message: "Invalid QR code or order not found for this outlet" 
         });
-      }
-
-      // Get order items and outlet details
-      const orderItems = await storage.getOrderItems(order.id);
-      const outlet = await storage.getOutlet(order.outletId);
-      
-      res.json({
-        order,
-        items: orderItems,
-        outlet
-      });
-    } catch (error) {
-      console.error("Error verifying QR code:", error);
-      res.status(500).json({ message: "Failed to verify QR code" });
-    }
-  });
-
-  // Confirm pickup (student only) - marks order as completed
-  app.post('/api/orders/:id/confirm-pickup', isAuthenticated, async (req: any, res) => {
-    try {
-      const orderId = req.params.id;
-      const userId = req.user.id;
-      
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-      
-      // Only the customer who placed the order can confirm pickup
-      if (order.userId !== userId) {
-        return res.status(403).json({ message: "Not authorized to confirm this order" });
       }
       
       // Order must be ready for pickup
       if (order.status !== 'ready') {
         return res.status(400).json({ 
-          message: "Order is not ready for pickup yet",
+          message: `Order is not ready yet. Current status: ${order.status}`,
           currentStatus: order.status
         });
       }
       
-      await storage.updateOrderStatus(orderId, 'completed');
-      res.json({ success: true, message: "Pickup confirmed! Enjoy your meal!" });
+      // Mark order as completed
+      await storage.updateOrderStatus(order.id, 'completed');
+      
+      res.json({ 
+        success: true, 
+        message: "Pickup confirmed successfully!",
+        orderId: order.id
+      });
     } catch (error) {
-      console.error("Error confirming pickup:", error);
-      res.status(500).json({ message: "Failed to confirm pickup" });
+      console.error("Error scanning QR code:", error);
+      res.status(500).json({ message: "Failed to process QR scan" });
     }
   });
 
