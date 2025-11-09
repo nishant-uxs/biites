@@ -16,6 +16,8 @@ export default function Orders() {
 
   const { data: orders, isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ['/api/orders'],
+    refetchInterval: 5000, // Auto-refresh every 5 seconds for real-time updates
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 
   const activeOrders = orders?.filter(
