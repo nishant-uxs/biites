@@ -360,7 +360,7 @@ export class DatabaseStorage implements IStorage {
         ...orderData,
         qrCode,
         estimatedReadyTime,
-        status: "placed",
+        status: "pending", // Orders start as pending, outlet must confirm
       })
       .returning();
 
