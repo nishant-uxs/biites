@@ -12,7 +12,7 @@ export function getSession() {
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
+    createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
   });
@@ -23,7 +23,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false, // set to true in production with HTTPS
+      secure: process.env.NODE_ENV === 'production', // set to true in production with HTTPS
       maxAge: sessionTtl,
     },
   });
@@ -53,9 +53,14 @@ export async function setupAuth(app: Express) {
           }
 
           console.log(`[Login] User found: ${email}, Role: ${user.role}`);
-          console.log(`[Login] Stored password hash: ${user.password.substring(0, 20)}...`);
-          console.log(`[Login] Entered password length: ${password.length}`);
+          const hashPreview = typeof user.password === 'string' ? user.password.slice(0, 20) : 'invalid';
+          const pwdLen = typeof password === 'string' ? password.length : 0;
+          console.log(`[Login] Stored password hash: ${hashPreview}...`);
+          console.log(`[Login] Entered password length: ${pwdLen}`);
           
+          if (typeof user.password !== 'string' || !user.password) {
+            return done(null, false, { message: "Invalid email or password" });
+          }
           const isPasswordValid = await bcrypt.compare(password, user.password);
           console.log(`[Login] Password valid: ${isPasswordValid}`);
           
