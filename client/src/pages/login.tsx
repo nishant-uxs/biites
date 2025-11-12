@@ -104,17 +104,6 @@ export default function Login() {
               </Link>
             </p>
           </div>
-
-          <div className="mt-4 p-4 bg-muted/50 rounded-md">
-            <p className="text-sm font-medium mb-2">Test Accounts:</p>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>• App Admin: admin@test.com</p>
-              <p>• University Admin: universityadmin@test.com</p>
-              <p>• Outlet Owner: outletowner@test.com</p>
-              <p>• Student: student@test.com</p>
-              <p className="mt-2 font-medium">All passwords: password123</p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
