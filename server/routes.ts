@@ -1,4 +1,8 @@
 import type { Express } from "express";
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./localAuth";
@@ -66,6 +70,13 @@ const isOutletOwner = async (req: any, res: any, next: any) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Local uploads directory (fallback when cloud object storage is not available)
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
+  }
+  app.use("/uploads", express.static(uploadsDir));
 
   // ===== AUTH ROUTES =====
   
@@ -1101,9 +1112,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    res.json({ uploadURL });
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      return res.json({ uploadURL });
+    } catch (e) {
+      // Fallback to local upload URL
+      const id = randomUUID();
+      const localPutUrl = `${req.protocol}://${req.get("host")}/api/uploads/${id}`;
+      return res.json({ uploadURL: localPutUrl });
+    }
   });
 
   app.post("/api/objects/set-acl", isAuthenticated, async (req: any, res) => {
@@ -1115,6 +1133,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "objectURL is required" });
       }
 
+      // Local fallback: if it's our local PUT endpoint, convert to public GET URL
+      if (objectURL.includes("/api/uploads/")) {
+        const id = objectURL.split("/api/uploads/")[1];
+        const publicUrl = `${req.protocol}://${req.get("host")}/uploads/${id}`;
+        return res.status(200).json({ objectPath: publicUrl });
+      }
+
+      // Otherwise use cloud object storage path normalization
       const objectStorageService = new ObjectStorageService();
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         objectURL,
@@ -1137,6 +1163,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const objectStorageService = new ObjectStorageService();
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadUrl: uploadURL });
+  });
+
+  // Local binary upload endpoint (PUT)
+  app.put("/api/uploads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = req.params.id;
+      if (!id) return res.status(400).json({ error: "Missing id" });
+      const filePath = path.join(uploadsDir, id);
+      const writeStream = fs.createWriteStream(filePath);
+
+      req.on("error", (err: any) => {
+        console.error("Upload stream error:", err);
+        if (!res.headersSent) res.status(500).json({ error: "Stream error" });
+      });
+
+      writeStream.on("error", (err) => {
+        console.error("Write stream error:", err);
+        if (!res.headersSent) res.status(500).json({ error: "Write error" });
+      });
+
+      writeStream.on("finish", () => {
+        res.status(200).json({ success: true });
+      });
+
+      req.pipe(writeStream);
+    } catch (error) {
+      console.error("Local upload failed:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
   });
 
   // ===== MENU EXTRACTION ROUTES =====
