@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -61,6 +61,26 @@ interface AdminUser {
   createdAt: string;
 }
 
+function AnimatedNumber({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const start = 0;
+    const end = isNaN(value) ? 0 : value;
+    const duration = 600;
+    let frame = 0 as unknown as number;
+    const startTime = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - startTime) / duration);
+      const current = Math.round(start + (end - start) * p);
+      setDisplay(current);
+      if (p < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+  return <>{display.toLocaleString()}</>;
+}
+
 const universitySchema = z.object({
   name: z.string().min(1, "Name is required"),
   location: z.string().min(1, "Location is required"),
@@ -105,6 +125,8 @@ export default function AdminDashboard() {
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<PlatformAnalytics>({
     queryKey: ['/api/admin/analytics'],
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: allUsers = [], isLoading: usersLoading } = useQuery<AdminUser[]>({
@@ -252,7 +274,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Total Revenue",
-      value: `₹${analytics?.totalRevenue || 0}`,
+      value: analytics?.totalRevenue || 0,
       icon: IndianRupee,
       color: "text-emerald-500",
       bg: "bg-emerald-50 dark:bg-emerald-900/20",
@@ -324,7 +346,15 @@ export default function AdminDashboard() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">{stat.value}</div>
+                        <div className="text-2xl font-bold">
+                          {stat.title === 'Total Revenue' ? (
+                            <>
+                              ₹<AnimatedNumber value={Number(stat.value) || 0} />
+                            </>
+                          ) : (
+                            <AnimatedNumber value={Number(stat.value) || 0} />
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {stat.description}
                         </p>
