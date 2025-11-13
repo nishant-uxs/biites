@@ -113,6 +113,11 @@ export interface IStorage {
     studentCount: number;
     orderCount: number;
   }>;
+  getUniversityOutletSales(
+    universityId: string,
+    start?: Date,
+    end?: Date
+  ): Promise<Array<{ outletId: string; outletName: string; totalOrders: number; totalRevenue: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -718,6 +723,40 @@ export class DatabaseStorage implements IStorage {
       studentCount: studentStats.studentCount || 0,
       orderCount: orderStats.orderCount || 0,
     };
+  }
+
+  async getUniversityOutletSales(
+    universityId: string,
+    start?: Date,
+    end?: Date
+  ): Promise<Array<{ outletId: string; outletName: string; totalOrders: number; totalRevenue: number }>> {
+    let whereExpr: any = eq(outlets.universityId, universityId);
+    if (start) {
+      whereExpr = and(whereExpr, sql`${orders.createdAt} >= ${start}`);
+    }
+    if (end) {
+      whereExpr = and(whereExpr, sql`${orders.createdAt} <= ${end}`);
+    }
+
+    const rows = await db
+      .select({
+        outletId: outlets.id,
+        outletName: outlets.name,
+        totalOrders: sql<number>`count(distinct ${orders.id})::int`,
+        totalRevenue: sql<number>`COALESCE(SUM(${orders.totalAmount}), 0)::numeric`,
+      })
+      .from(orders)
+      .innerJoin(outlets, eq(orders.outletId, outlets.id))
+      .where(whereExpr)
+      .groupBy(outlets.id, outlets.name)
+      .orderBy(desc(sql`COALESCE(SUM(${orders.totalAmount}), 0)`));
+
+    return rows.map(r => ({
+      outletId: r.outletId,
+      outletName: r.outletName as unknown as string,
+      totalOrders: r.totalOrders,
+      totalRevenue: r.totalRevenue as unknown as number,
+    }));
   }
 }
 

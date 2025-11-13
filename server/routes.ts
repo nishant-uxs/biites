@@ -80,6 +80,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sales per outlet for a university (optional date range)
+  app.get('/api/admin/universities/:id/sales', isAuthenticated, isAppAdmin, async (req: any, res) => {
+    try {
+      const universityId = req.params.id;
+      const { start, end } = req.query as { start?: string; end?: string };
+
+      const startDate = start ? new Date(start) : undefined;
+      const endDate = end ? new Date(end) : undefined;
+
+      const sales = await storage.getUniversityOutletSales(universityId, startDate, endDate);
+      res.json(sales);
+    } catch (error) {
+      console.error("Error fetching university sales:", error);
+      res.status(500).json({ message: "Failed to fetch sales" });
+    }
+  });
+
   app.patch('/api/auth/user/university', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;

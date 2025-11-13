@@ -485,7 +485,6 @@ export default function AdminDashboard() {
                             <th className="p-3 text-left text-sm font-medium">Email</th>
                             <th className="p-3 text-left text-sm font-medium">Name</th>
                             <th className="p-3 text-left text-sm font-medium">Role</th>
-                            <th className="p-3 text-left text-sm font-medium">Tokens</th>
                             <th className="p-3 text-left text-sm font-medium">Created</th>
                             <th className="p-3 text-right text-sm font-medium">Actions</th>
                           </tr>
@@ -509,7 +508,6 @@ export default function AdminDashboard() {
                                   {adminUser.role.replace('_', ' ')}
                                 </Badge>
                               </td>
-                              <td className="p-3 text-sm">{adminUser.tokens}</td>
                               <td className="p-3 text-sm text-muted-foreground">
                                 {new Date(adminUser.createdAt).toLocaleDateString()}
                               </td>
@@ -634,6 +632,23 @@ function UniversityCard({
     queryKey: ['/api/admin/universities', university.id, 'admin'],
   });
 
+  const [showSales, setShowSales] = useState(false);
+  const [start, setStart] = useState<string>("");
+  const [end, setEnd] = useState<string>("");
+
+  const { data: sales = [], isLoading: salesLoading, refetch: refetchSales } = useQuery<Array<{ outletId: string; outletName: string; totalOrders: number; totalRevenue: number }>>({
+    queryKey: ['/api/admin/universities', university.id, 'sales', start, end],
+    enabled: showSales,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (start) params.set('start', start);
+      if (end) params.set('end', end);
+      const resp = await fetch(`/api/admin/universities/${university.id}/sales?${params.toString()}`);
+      if (!resp.ok) throw new Error('Failed to fetch sales');
+      return await resp.json();
+    }
+  });
+
   return (
     <Card className="hover-elevate">
       <CardContent className="p-4">
@@ -685,6 +700,15 @@ function UniversityCard({
             <div className="flex gap-2">
               <Button 
                 size="sm" 
+                variant="outline"
+                onClick={() => setShowSales(true)}
+                title="View Sales"
+                data-testid={`button-view-sales-${university.id}`}
+              >
+                <TrendingUp className="w-4 h-4 mr-1" /> Sales
+              </Button>
+              <Button 
+                size="sm" 
                 variant="outline" 
                 onClick={onResetPassword}
                 title="Reset Admin Password"
@@ -704,6 +728,53 @@ function UniversityCard({
             </div>
           </div>
         </div>
+        <Dialog open={showSales} onOpenChange={setShowSales}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Sales - {university.name}</DialogTitle>
+              <DialogDescription>
+                View total orders and revenue per outlet. Use optional date filters.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <Label>Date From</Label>
+                <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <Label>Date To</Label>
+                <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              </div>
+              <Button onClick={() => refetchSales()} disabled={salesLoading}>Apply</Button>
+            </div>
+            <div className="mt-4 rounded-md border overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="p-3 text-left text-sm font-medium">Outlet</th>
+                    <th className="p-3 text-left text-sm font-medium">Orders</th>
+                    <th className="p-3 text-left text-sm font-medium">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesLoading ? (
+                    <tr><td className="p-3 text-sm text-muted-foreground" colSpan={3}>Loading...</td></tr>
+                  ) : sales.length === 0 ? (
+                    <tr><td className="p-3 text-sm text-muted-foreground" colSpan={3}>No data</td></tr>
+                  ) : (
+                    sales.map((row) => (
+                      <tr key={row.outletId} className="border-b">
+                        <td className="p-3 text-sm">{row.outletName}</td>
+                        <td className="p-3 text-sm">{row.totalOrders}</td>
+                        <td className="p-3 text-sm">₹{row.totalRevenue}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
