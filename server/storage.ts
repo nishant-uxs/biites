@@ -189,6 +189,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
+    // Delete dependent data in a safe order to satisfy FKs
+    // 1) If the user owns any outlets, delete their dependent data and the outlets
+    const owned = await db.select().from(outlets).where(eq(outlets.ownerId, id));
+    if (owned.length > 0) {
+      const ownedOutletIds = owned.map(o => o.id);
+      // Orders for owned outlets (will cascade order_items)
+      await db.delete(orders).where(inArray(orders.outletId, ownedOutletIds));
+      // Group orders for owned outlets
+      await db.delete(groupOrders).where(inArray(groupOrders.outletId, ownedOutletIds));
+      // Ratings for owned outlets
+      await db.delete(ratings).where(inArray(ratings.outletId, ownedOutletIds));
+      // Finally delete outlets (will cascade dishes -> order_items via dish not needed as we removed orders already)
+      await db.delete(outlets).where(inArray(outlets.id, ownedOutletIds));
+    }
+
+    // 2) Delete entities created by the user
+    await db.delete(groupOrders).where(eq(groupOrders.creatorId, id));
+    await db.delete(rewardClaims).where(eq(rewardClaims.userId, id));
+    await db.delete(userBadges).where(eq(userBadges.userId, id));
+    await db.delete(ratings).where(eq(ratings.userId, id));
+    await db.delete(orders).where(eq(orders.userId, id)); // cascades order_items
+
+    // 3) Finally delete the user
     await db.delete(users).where(eq(users.id, id));
   }
 
@@ -230,7 +253,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUniversity(id: string): Promise<void> {
-    // Database CASCADE will handle deleting outlets, dishes, users, etc.
+    // Manually cascade to avoid FK violations
+    // 1) Gather outlets for the university
+    const uniOutlets = await db.select().from(outlets).where(eq(outlets.universityId, id));
+    const outletIds = uniOutlets.map(o => o.id);
+
+    if (outletIds.length > 0) {
+      // Delete orders for these outlets (order_items cascade)
+      await db.delete(orders).where(inArray(orders.outletId, outletIds));
+      // Delete group orders for these outlets
+      await db.delete(groupOrders).where(inArray(groupOrders.outletId, outletIds));
+      // Delete ratings for these outlets
+      await db.delete(ratings).where(inArray(ratings.outletId, outletIds));
+      // Delete dishes for these outlets (their order_items already removed with orders)
+      await db.delete(dishes).where(inArray(dishes.outletId, outletIds));
+      // Delete outlets
+      await db.delete(outlets).where(inArray(outlets.id, outletIds));
+    }
+
+    // 2) Disassociate users from this university (keep accounts)
+    await db.update(users).set({ universityId: null, updatedAt: new Date() }).where(eq(users.universityId, id));
+
+    // 3) Delete the university
     await db.delete(universities).where(eq(universities.id, id));
   }
 
