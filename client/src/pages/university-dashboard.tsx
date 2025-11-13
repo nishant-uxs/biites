@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Store, Plus, Star, TrendingUp, Upload, Loader2, Copy, Check, School,
   MapPin, Users, ShoppingBag, Clock, IndianRupee, ChefHat, Info,
-  AlertCircle, Building2, Activity, Package2, Key
+  AlertCircle, Building2, Activity, Package2, Key, LogOut
 } from "lucide-react";
 import type { Outlet } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -66,7 +66,7 @@ const outletSchema = z.object({
 type OutletFormValues = z.infer<typeof outletSchema>;
 
 export default function UniversityDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
@@ -300,11 +300,14 @@ export default function UniversityDashboard() {
               <p className="text-sm text-muted-foreground">Manage your campus food outlets</p>
             </div>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <Badge variant="default" className="gap-1">
               <Activity className="w-3 h-3" />
               {user?.universityId ? "Campus Active" : "Global Admin"}
             </Badge>
+            <Button variant="outline" size="sm" onClick={logout} data-testid="button-logout-university">
+              <LogOut className="w-4 h-4 mr-1" /> Logout
+            </Button>
           </div>
         </div>
       </div>
