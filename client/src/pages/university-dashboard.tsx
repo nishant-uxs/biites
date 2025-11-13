@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Store, Plus, Star, TrendingUp, Upload, Loader2, Copy, Check, School,
   MapPin, Users, ShoppingBag, Clock, IndianRupee, ChefHat, Info,
-  AlertCircle, Building2, Activity, Package2
+  AlertCircle, Building2, Activity, Package2, Key
 } from "lucide-react";
 import type { Outlet } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -90,6 +90,28 @@ export default function UniversityDashboard() {
       name: "",
       description: "",
       averagePrice: "",
+    },
+  });
+
+  const resetOwnerPasswordMutation = useMutation({
+    mutationFn: async (outletId: string) => {
+      const response = await apiRequest("PATCH", `/api/outlets/${outletId}/owner/reset-password`);
+      return await response.json();
+    },
+    onSuccess: (response: any) => {
+      setGeneratedCredentials(response);
+      setShowCredentials(true);
+      toast({
+        title: "Password Reset",
+        description: "New password generated for outlet owner",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -554,7 +576,12 @@ export default function UniversityDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {outlets.map((outlet) => (
-                      <OutletCard key={outlet.id} outlet={outlet} />
+                      <OutletCard 
+                        key={outlet.id} 
+                        outlet={outlet} 
+                        onResetPassword={() => resetOwnerPasswordMutation.mutate(outlet.id)}
+                        isResetting={resetOwnerPasswordMutation.isPending}
+                      />
                     ))}
                   </div>
                 )}
@@ -637,7 +664,7 @@ export default function UniversityDashboard() {
   );
 }
 
-function OutletCard({ outlet }: { outlet: Outlet }) {
+function OutletCard({ outlet, onResetPassword, isResetting }: { outlet: Outlet; onResetPassword: () => void; isResetting: boolean }) {
   const rating = parseFloat(outlet.rating || "0");
 
   return (
@@ -667,12 +694,24 @@ function OutletCard({ outlet }: { outlet: Outlet }) {
               </div>
             </div>
           </div>
-          <div className="text-center">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-              <span className="font-semibold">{rating.toFixed(1)}</span>
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                <span className="font-semibold">{rating.toFixed(1)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Rating</p>
             </div>
-            <p className="text-xs text-muted-foreground">Rating</p>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={onResetPassword}
+              disabled={isResetting}
+              title="Reset Outlet Owner Password"
+              data-testid={`button-reset-outlet-owner-${outlet.id}`}
+            >
+              <Key className="w-4 h-4 mr-1" /> Reset Password
+            </Button>
           </div>
         </div>
       </CardContent>

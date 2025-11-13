@@ -80,6 +80,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset outlet owner password (university admin or app admin)
+  app.patch('/api/outlets/:id/owner/reset-password', isAuthenticated, isUniversityAdmin, async (req: any, res) => {
+    try {
+      const outletId = req.params.id;
+      const requester = req.dbUser;
+
+      const outlet = await storage.getOutlet(outletId);
+      if (!outlet) {
+        return res.status(404).json({ message: "Outlet not found" });
+      }
+
+      // University admin can only reset for outlets in their own university
+      if (requester.role !== 'app_admin') {
+        if (!requester.universityId || requester.universityId !== outlet.universityId) {
+          return res.status(403).json({ message: "Not authorized to reset password for this outlet" });
+        }
+      }
+
+      // Get owner user
+      const ownerUser = await storage.getUser(outlet.ownerId);
+      if (!ownerUser) {
+        return res.status(404).json({ message: "Outlet owner not found" });
+      }
+
+      // Generate new password
+      const newPassword = generatePassword(12);
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      console.log(`[Password Reset] Outlet Owner: ${ownerUser.email} for outlet ${outlet.name}`);
+
+      // Update password
+      await storage.updateUserPassword(ownerUser.id, hashedPassword);
+
+      res.json({
+        email: ownerUser.email,
+        password: newPassword,
+        userId: ownerUser.id,
+      });
+    } catch (error) {
+      console.error("Error resetting outlet owner password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
   // Sales per outlet for a university (optional date range)
   app.get('/api/admin/universities/:id/sales', isAuthenticated, isAppAdmin, async (req: any, res) => {
     try {
