@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Building2, Plus, Users, Store, ShoppingBag, Copy, Check, Shield, 
   TrendingUp, IndianRupee, MapPin, Code, Activity, UserCheck, BookOpen,
-  AlertCircle, GraduationCap, ChefHat, Zap, Trash2, UserX
+  AlertCircle, GraduationCap, ChefHat, Zap, Trash2, UserX, LogOut
 } from "lucide-react";
 import type { University } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -70,7 +70,7 @@ const universitySchema = z.object({
 type UniversityFormValues = z.infer<typeof universitySchema>;
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
@@ -282,11 +282,14 @@ export default function AdminDashboard() {
               <p className="text-sm text-muted-foreground">Manage universities and monitor platform metrics</p>
             </div>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <Badge variant="default" className="gap-1">
               <Activity className="w-3 h-3" />
               System Active
             </Badge>
+            <Button variant="outline" size="sm" onClick={logout} data-testid="button-logout-admin">
+              <LogOut className="w-4 h-4 mr-1" /> Logout
+            </Button>
           </div>
         </div>
       </div>
