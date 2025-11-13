@@ -76,6 +76,9 @@ export default function UniversityDashboard() {
   const [extractedDishes, setExtractedDishes] = useState<ExtractedDish[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [selectedDishIdx, setSelectedDishIdx] = useState<number | null>(null);
+  const [selectedMap, setSelectedMap] = useState<Record<number, boolean>>({});
   
   const [showCredentials, setShowCredentials] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState<{
@@ -167,11 +170,18 @@ export default function UniversityDashboard() {
         });
         const extractData: any = await extractResponse.json();
 
-        setExtractedDishes(extractData.dishes);
+        const list: ExtractedDish[] = Array.isArray(extractData.dishes) ? extractData.dishes : [];
+        setExtractedDishes(list);
+        // Preselect all by default
+        const initialSel: Record<number, boolean> = {};
+        list.forEach(( _dish: ExtractedDish, i: number) => { initialSel[i] = true; });
+        setSelectedMap(initialSel);
+        setSelectedDishIdx(list.length > 0 ? 0 : null);
+        if (list.length > 0) setShowReviewDialog(true);
         setExtractionError(false);
         toast({
           title: "Menu extracted successfully",
-          description: `Found ${extractData.dishes.length} dishes from the menu photo`,
+          description: `Found ${list.length} dishes from the menu photo`,
         });
       } catch (error) {
         setExtractedDishes([]);
@@ -204,10 +214,11 @@ export default function UniversityDashboard() {
       
       const outletData: any = await outletResponse.json();
 
-      // Create dishes if extracted
-      if (extractedDishes.length > 0) {
+      // Create dishes if extracted (only selected)
+      const selected = extractedDishes.filter((_, idx) => selectedMap[idx]);
+      if (selected.length > 0) {
         await Promise.all(
-          extractedDishes.map((dish) =>
+          selected.map((dish) =>
             apiRequest("POST", "/api/dishes", {
               outletId: outletData.outlet.id,
               name: dish.name,
@@ -452,16 +463,13 @@ export default function UniversityDashboard() {
                     {/* Extracted Dishes */}
                     {extractedDishes.length > 0 && (
                       <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
-                          ✓ Successfully extracted {extractedDishes.length} dishes from menu
-                        </p>
-                        <div className="max-h-32 overflow-y-auto text-xs text-green-700 dark:text-green-300 space-y-1">
-                          {extractedDishes.map((dish, i) => (
-                            <div key={i} className="flex justify-between">
-                              <span>{dish.name}</span>
-                              <span className="font-medium">₹{dish.price}</span>
-                            </div>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                            ✓ Extracted {extractedDishes.length} dishes
+                          </p>
+                          <Button size="sm" variant="outline" onClick={() => setShowReviewDialog(true)} data-testid="button-review-extracted">
+                            Review & Edit
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -661,6 +669,110 @@ export default function UniversityDashboard() {
               Close
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Extracted Dishes Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Review Extracted Dishes</DialogTitle>
+            <DialogDescription>
+              Select, edit, and confirm dishes before importing. Only selected items will be added to the outlet.
+            </DialogDescription>
+          </DialogHeader>
+          {extractedDishes.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No dishes extracted.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1 border rounded-md overflow-hidden">
+                <div className="flex items-center justify-between p-2 border-b">
+                  <div className="text-sm font-medium">Dishes ({extractedDishes.length})</div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const all: Record<number, boolean> = {};
+                      extractedDishes.forEach((_: ExtractedDish, i: number) => { all[i] = true; });
+                      setSelectedMap(all);
+                    }}>Select all</Button>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const none: Record<number, boolean> = {};
+                      extractedDishes.forEach((_: ExtractedDish, i: number) => { none[i] = false; });
+                      setSelectedMap(none);
+                    }}>Deselect</Button>
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {extractedDishes.map((dish, idx) => (
+                    <div key={idx} className={`flex items-center gap-2 p-2 cursor-pointer ${selectedDishIdx === idx ? 'bg-muted' : ''}`}
+                      onClick={() => setSelectedDishIdx(idx)}>
+                      <input
+                        type="checkbox"
+                        checked={!!selectedMap[idx]}
+                        onChange={(e) => setSelectedMap(prev => ({ ...prev, [idx]: e.target.checked }))}
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium truncate">{dish.name || 'Untitled'}</div>
+                        <div className="text-xs text-muted-foreground">₹{dish.price || 0} {dish.category ? `• ${dish.category}` : ''}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                {selectedDishIdx !== null ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Name</Label>
+                        <Input value={extractedDishes[selectedDishIdx]?.name || ''} onChange={(e) => {
+                          const v = e.target.value;
+                          setExtractedDishes(prev => prev.map((d, i) => i === selectedDishIdx ? { ...d, name: v } : d));
+                        }} />
+                      </div>
+                      <div>
+                        <Label>Price (₹)</Label>
+                        <Input type="number" value={extractedDishes[selectedDishIdx]?.price ?? 0} onChange={(e) => {
+                          const v = parseInt(e.target.value || '0', 10);
+                          setExtractedDishes(prev => prev.map((d, i) => i === selectedDishIdx ? { ...d, price: isNaN(v) ? 0 : v } : d));
+                        }} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Category</Label>
+                        <Input value={extractedDishes[selectedDishIdx]?.category || ''} onChange={(e) => {
+                          const v = e.target.value;
+                          setExtractedDishes(prev => prev.map((d, i) => i === selectedDishIdx ? { ...d, category: v } : d));
+                        }} />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <Label className="sr-only">Veg</Label>
+                        <Button type="button" variant={extractedDishes[selectedDishIdx]?.isVeg ? 'default' : 'outline'} onClick={() => {
+                          setExtractedDishes(prev => prev.map((d, i) => i === selectedDishIdx ? { ...d, isVeg: !(d.isVeg ?? true) } : d));
+                        }}>
+                          {extractedDishes[selectedDishIdx]?.isVeg ? 'Veg' : 'Non-Veg'}
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea rows={3} value={extractedDishes[selectedDishIdx]?.description || ''} onChange={(e) => {
+                        const v = e.target.value;
+                        setExtractedDishes(prev => prev.map((d, i) => i === selectedDishIdx ? { ...d, description: v } : d));
+                      }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Select a dish from the left to edit.</div>
+                )}
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setShowReviewDialog(false)}>Done</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
