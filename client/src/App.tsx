@@ -122,12 +122,12 @@ function Router() {
 }
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <>
       <Router />
-      {isAuthenticated && <BottomNav />}
+      {isAuthenticated && user?.role === 'student' && <BottomNav />}
       <Toaster />
     </>
   );

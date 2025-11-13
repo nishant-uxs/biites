@@ -293,7 +293,7 @@ export default function AdminDashboard() {
 
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-[600px] grid-cols-3">
+          <TabsList className="w-full flex flex-wrap gap-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="universities">Universities</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
@@ -478,7 +478,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="rounded-md border">
+                    <div className="rounded-md border overflow-x-auto">
                       <table className="w-full">
                         <thead>
                           <tr className="border-b bg-muted/50">
