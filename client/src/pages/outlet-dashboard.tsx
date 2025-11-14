@@ -621,7 +621,7 @@ export default function OutletDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={logout}
+              onClick={async () => { await logout(); }}
               data-testid="button-logout-outlet"
             >
               <LogOut className="w-4 h-4 mr-2" /> Logout
