@@ -929,6 +929,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== RATING ROUTES =====
   
+  app.get('/api/orders/:id/rating', isAuthenticated, async (req: any, res) => {
+    try {
+      const orderId = req.params.id;
+      if (!orderId) return res.status(400).json({ message: 'Order ID is required' });
+      const rating = await storage.getOrderRating(orderId);
+      res.json(rating);
+    } catch (error) {
+      console.error('Error fetching rating:', error);
+      res.status(500).json({ message: 'Failed to fetch rating' });
+    }
+  });
+
   app.post('/api/ratings', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;

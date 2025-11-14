@@ -27,6 +27,7 @@ import {
   type InsertGroupOrder,
   type GroupOrder,
   type Reward,
+  type InsertReward,
   type Challenge,
   type Badge,
 } from "@shared/schema";
@@ -579,7 +580,24 @@ export class DatabaseStorage implements IStorage {
 
   // ===== REWARD OPERATIONS =====
   
+  async ensureDefaultRewards(): Promise<void> {
+    const existing = await db.select().from(rewards);
+    if (existing.length > 0) return;
+
+    const defaults: InsertReward[] = [
+      { type: "discount", title: "10% Off", description: "Get 10% off your next order", value: 10, probability: 35 },
+      { type: "discount", title: "20% Off", description: "Save 20% on your next meal", value: 20, probability: 20 },
+      { type: "offer", title: "Free Drink", description: "Free soft drink with any meal", value: 1, probability: 18 },
+      { type: "offer", title: "Free Dessert", description: "Enjoy a free dessert on us", value: 1, probability: 12 },
+      { type: "discount", title: "30% Off", description: "Big savings on your next order", value: 30, probability: 8 },
+      { type: "offer", title: "Buy 1 Get 1 50% Off", description: "On select items", value: 1, probability: 7 },
+    ];
+
+    await db.insert(rewards).values(defaults as any);
+  }
+
   async getRewards(): Promise<Reward[]> {
+    await this.ensureDefaultRewards();
     return await db.select().from(rewards);
   }
 

@@ -49,9 +49,10 @@ export default function OutletDetail() {
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: any) => {
-      return await apiRequest('POST', '/api/orders', orderData);
+      const res = await apiRequest('POST', '/api/orders', orderData);
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (order: any) => {
       toast({
         title: "Order Placed!",
         description: "Your order is being prepared",
@@ -60,7 +61,11 @@ export default function OutletDetail() {
       setCart([]);
       setSpecialInstructions("");
       setShowCheckout(false);
-      setLocation('/orders');
+      if (order?.id) {
+        setLocation(`/orders?rate=${order.id}`);
+      } else {
+        setLocation('/orders');
+      }
     },
     onError: (error: Error) => {
       toast({
