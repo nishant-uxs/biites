@@ -2,6 +2,14 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +34,8 @@ export default function OutletDetail() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const { data: outlet } = useQuery<Outlet>({
     queryKey: ['/api/outlets', outletId],
@@ -90,6 +100,8 @@ export default function OutletDetail() {
   };
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
+  const upfrontAmount = Math.round(totalAmount * 0.4);
+  const remainingAmount = Math.max(totalAmount - upfrontAmount, 0);
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handlePlaceOrder = () => {
@@ -106,6 +118,27 @@ export default function OutletDetail() {
       specialInstructions,
       totalAmount,
     });
+  };
+
+  const handleOpenPayment = () => {
+    if (cart.length === 0) return;
+    setShowPaymentDialog(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    try {
+      setIsProcessingPayment(true);
+      // Simulate payment delay
+      await new Promise((r) => setTimeout(r, 1000));
+      toast({
+        title: "Payment successful",
+        description: `₹${upfrontAmount} (40%) paid. Remaining ₹${remainingAmount} to be paid at pickup/delivery`,
+      });
+      setShowPaymentDialog(false);
+      handlePlaceOrder();
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   if (!outlet) {
@@ -262,7 +295,7 @@ export default function OutletDetail() {
               <Button
                 className="w-full"
                 size="lg"
-                onClick={handlePlaceOrder}
+                onClick={handleOpenPayment}
                 disabled={createOrderMutation.isPending}
                 data-testid="button-place-order"
               >
@@ -271,7 +304,53 @@ export default function OutletDetail() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Pay 40% to confirm</DialogTitle>
+              <DialogDescription>
+                We will collect the remaining amount at pickup/delivery.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Total</span>
+                <span className="font-semibold">₹{totalAmount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Upfront (40%)</span>
+                <span className="font-semibold">₹{upfrontAmount}</span>
+              </div>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Remaining</span>
+                <span>₹{remainingAmount}</span>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowPaymentDialog(false)}
+                disabled={isProcessingPayment}
+                data-testid="button-cancel-payment"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmPayment}
+                disabled={isProcessingPayment}
+                data-testid="button-confirm-payment"
+              >
+                {isProcessingPayment ? "Processing..." : `Pay ₹${upfrontAmount}`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );
 }
+
