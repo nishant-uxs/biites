@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sparkles, Coins } from "lucide-react";
 import type { Reward } from "@shared/schema";
 
@@ -14,6 +15,8 @@ interface RewardWheelProps {
 export function RewardWheel({ rewards, userTokens, onSpin, spinCost }: RewardWheelProps) {
   const [isSpinning, setIsSpinning] = useState(false);
   const [wonReward, setWonReward] = useState<Reward | null>(null);
+  const [showWinDialog, setShowWinDialog] = useState(false);
+  const [confettiBursts, setConfettiBursts] = useState<number[]>([]);
 
   const handleSpin = async () => {
     if (userTokens < spinCost || isSpinning) return;
@@ -28,6 +31,10 @@ export function RewardWheel({ rewards, userTokens, onSpin, spinCost }: RewardWhe
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       setWonReward(reward);
+      setShowWinDialog(true);
+      // Trigger simple confetti bursts (emoji-based to avoid deps)
+      setConfettiBursts(Array.from({ length: 20 }, (_, i) => i));
+      setTimeout(() => setConfettiBursts([]), 2500);
     } catch (error) {
       console.error('Spin failed:', error);
     } finally {
@@ -39,6 +46,30 @@ export function RewardWheel({ rewards, userTokens, onSpin, spinCost }: RewardWhe
 
   return (
     <div className="space-y-6">
+      {/* Confetti Layer */}
+      {confettiBursts.length > 0 && (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden z-50">
+          {confettiBursts.map((i) => (
+            <div
+              key={i}
+              className="absolute text-2xl animate-[fall_2.5s_linear_forwards]"
+              style={{
+                left: `${(i * 7) % 100}%`,
+                top: '-5%',
+                transform: `rotate(${(i * 37) % 360}deg)`,
+              }}
+            >
+              {['🎉','✨','🎊','💥','⭐','🍀'][i % 6]}
+            </div>
+          ))}
+          <style>{`
+            @keyframes fall {
+              0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+            }
+          `}</style>
+        </div>
+      )}
       {/* Token Display */}
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-2 bg-primary/10 px-6 py-3 rounded-full">
@@ -99,17 +130,32 @@ export function RewardWheel({ rewards, userTokens, onSpin, spinCost }: RewardWhe
         )}
       </div>
 
-      {/* Won Reward */}
-      {wonReward && (
-        <div className="bg-primary/10 rounded-lg p-6 text-center space-y-2 border-2 border-primary animate-in fade-in slide-in-from-bottom-4">
-          <p className="text-2xl">🎉</p>
-          <h3 className="text-xl font-bold">You Won!</h3>
-          <p className="text-lg font-semibold">{wonReward.title}</p>
-          {wonReward.description && (
-            <p className="text-sm text-muted-foreground">{wonReward.description}</p>
+      {/* Won Reward Dialog */}
+      <Dialog open={showWinDialog} onOpenChange={setShowWinDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>🎉</span> Congratulations!
+            </DialogTitle>
+            <DialogDescription>
+              You just won a reward from the wheel.
+            </DialogDescription>
+          </DialogHeader>
+          {wonReward && (
+            <div className="space-y-2 text-center">
+              <div className="text-2xl font-bold">{wonReward.title}</div>
+              {wonReward.description && (
+                <p className="text-sm text-muted-foreground">{wonReward.description}</p>
+              )}
+            </div>
           )}
-        </div>
-      )}
+          <DialogFooter>
+            <Button onClick={() => setShowWinDialog(false)} autoFocus>
+              Awesome
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Rewards List */}
       <div className="space-y-2">

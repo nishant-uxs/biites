@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { RewardWheel } from "@/components/reward-wheel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Trophy, Target } from "lucide-react";
+import { Coins, Trophy, Target, Gift } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Reward, Challenge } from "@shared/schema";
@@ -23,6 +23,10 @@ export default function Rewards() {
 
   const { data: userChallenges = [] } = useQuery<any[]>({
     queryKey: ['/api/challenges/progress'],
+  });
+
+  const { data: claims = [] } = useQuery<any[]>({
+    queryKey: ['/api/rewards/claims'],
   });
 
   const spinMutation = useMutation({
@@ -95,6 +99,37 @@ export default function Rewards() {
               onSpin={handleSpin}
               spinCost={spinCost}
             />
+          </CardContent>
+        </Card>
+
+        {/* Recent Rewards / Claims */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Gift className="w-5 h-5 text-primary" />
+              Recent Wins
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {claims.length > 0 ? (
+              <div className="space-y-2">
+                {claims.slice(0, 8).map((c: any) => (
+                  <div key={c.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-medium">{c.rewardTitle || c.reward?.title || 'Reward'}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(c.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </div>
+                    </div>
+                    <Badge variant={c.isUsed ? 'secondary' : 'default'} className="text-xs">
+                      {c.isUsed ? 'Used' : 'Unused'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No wins yet. Spin the wheel to get your first reward!</div>
+            )}
           </CardContent>
         </Card>
 
