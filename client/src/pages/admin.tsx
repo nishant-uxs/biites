@@ -294,7 +294,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-card">
-        <div className="flex h-20 items-center px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:h-20 sm:items-center px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <Shield className="w-6 h-6 text-primary" />
@@ -304,8 +304,8 @@ export default function AdminDashboard() {
               <p className="text-sm text-muted-foreground">Manage universities and monitor platform metrics</p>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Badge variant="default" className="gap-1">
+          <div className="ml-0 sm:ml-auto w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
+            <Badge variant="default" className="gap-1 text-xs">
               <Activity className="w-3 h-3" />
               System Active
             </Badge>
