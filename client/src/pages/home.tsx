@@ -27,7 +27,7 @@ const categoryIcons = {
 };
 
 const categoryColors = {
-  "Fast Food": "bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
+  "Fast Food": "bg-primary/10 dark:bg-primary/20 text-primary",
   "Beverages": "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300",
   "Healthy": "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300",
   "Desserts": "bg-pink-100 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300",
@@ -245,13 +245,13 @@ export default function Home() {
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Card className="bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/20 dark:to-orange-900/10 border-orange-200 dark:border-orange-800">
+                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 dark:from-primary/20 dark:to-primary/10 dark:border-primary/30">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Percent className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm font-semibold text-orange-900 dark:text-orange-100">20% OFF</span>
+                      <Percent className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold text-primary">20% OFF</span>
                     </div>
-                    <p className="text-xs text-orange-700 dark:text-orange-300">On orders above ₹150</p>
+                    <p className="text-xs text-primary">On orders above ₹150</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/20 dark:to-purple-900/10 border-purple-200 dark:border-purple-800">

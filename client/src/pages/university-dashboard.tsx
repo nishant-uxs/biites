@@ -283,8 +283,8 @@ export default function UniversityDashboard() {
       title: "Total Orders",
       value: stats?.totalOrders || 0,
       icon: ShoppingBag,
-      color: "text-orange-500",
-      bg: "bg-orange-50 dark:bg-orange-900/20",
+      color: "text-primary",
+      bg: "bg-primary/10 dark:bg-primary/20",
       description: "All time orders",
     },
     {

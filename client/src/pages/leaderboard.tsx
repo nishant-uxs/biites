@@ -168,7 +168,7 @@ export default function Leaderboard() {
             {top3.length > 0 && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-orange-500" />
+                  <Flame className="w-5 h-5 text-primary" />
                   Top Champions
                 </h2>
                 <div className="grid grid-cols-3 gap-2">

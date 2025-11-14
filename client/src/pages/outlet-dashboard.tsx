@@ -121,7 +121,7 @@ function OrderCard({ order }: { order: Order }) {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'confirmed': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'preparing': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'preparing': return 'bg-primary/10 text-primary dark:bg-primary/20';
       case 'ready': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'completed': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
       default: return 'bg-gray-100 text-gray-800';
@@ -1235,10 +1235,10 @@ export default function OutletDashboard() {
 
             {/* Preparing Orders */}
             {orders.filter(o => o.status === 'preparing').length > 0 && (
-              <Card className="border-orange-200 dark:border-orange-900">
+              <Card className="border-primary/30 dark:border-primary/40">
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <ChefHat className="w-5 h-5 text-orange-600" />
+                    <ChefHat className="w-5 h-5 text-primary" />
                     <CardTitle>Preparing Orders</CardTitle>
                   </div>
                   <CardDescription>Currently being prepared</CardDescription>
