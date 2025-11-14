@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2, Bell, CheckCircle, X, Check, ScanLine } from "lucide-react";
+import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2, Bell, CheckCircle, X, Check, ScanLine, LogOut } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -250,7 +250,7 @@ function OrderCard({ order }: { order: Order }) {
 }
 
 export default function OutletDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [isAddDishOpen, setIsAddDishOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("menu");
@@ -260,6 +260,10 @@ export default function OutletDashboard() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedDishes, setExtractedDishes] = useState<any[]>([]);
   const [extractionError, setExtractionError] = useState(false);
+  // CSV Import state
+  const [csvDishes, setCsvDishes] = useState<any[]>([]);
+  const [csvError, setCsvError] = useState<string>("");
+  const [isParsingCsv, setIsParsingCsv] = useState(false);
   
   // Chill period state
   const [isChillDialogOpen, setIsChillDialogOpen] = useState(false);
@@ -614,6 +618,14 @@ export default function OutletDashboard() {
               <Power className="w-4 h-4 mr-2" />
               {outlet?.isChillPeriod ? "Deactivate" : "Activate"} Chill Period
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={logout}
+              data-testid="button-logout-outlet"
+            >
+              <LogOut className="w-4 h-4 mr-2" /> Logout
+            </Button>
           </div>
         </div>
       </div>
@@ -736,6 +748,115 @@ export default function OutletDashboard() {
                         <p className="text-xs text-muted-foreground">
                           Or skip this and add dishes manually one by one below
                         </p>
+                      </div>
+                    )}
+
+                    {/* CSV Import Section */}
+                    {!editingDish && (
+                      <div className="space-y-3 border-b pb-4">
+                        <Label>Import from Excel (CSV)</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Export your Excel sheet as CSV with headers: name, description, price, category, isVeg, isAvailable, calories, protein, carbs, sugar
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="csvInput"
+                            type="file"
+                            accept=".csv,text/csv"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setCsvError("");
+                              setIsParsingCsv(true);
+                              try {
+                                const text = await file.text();
+                                const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+                                if (lines.length === 0) throw new Error("Empty CSV file");
+                                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                                const idx = (k: string) => headers.findIndex(h => h === k);
+                                const req = ['name','price'];
+                                for (const k of req) {
+                                  if (idx(k) === -1) throw new Error(`Missing required header: ${k}`);
+                                }
+                                const parsed: any[] = [];
+                                for (let i = 1; i < lines.length; i++) {
+                                  const row = lines[i].split(',');
+                                  if (row.length === 1 && row[0].trim() === '') continue;
+                                  const get = (k: string) => {
+                                    const j = idx(k);
+                                    return j >= 0 ? row[j]?.trim() ?? '' : '';
+                                  };
+                                  const name = get('name');
+                                  const priceStr = get('price');
+                                  if (!name || !priceStr) continue;
+                                  parsed.push({
+                                    name,
+                                    description: get('description') || '',
+                                    price: parseFloat(priceStr),
+                                    category: (get('category') || 'main_course') as any,
+                                    isVeg: /^(true|1|yes)$/i.test(get('isveg') || get('is_veg')),
+                                    isAvailable: !/^(false|0|no)$/i.test(get('isavailable') || get('is_available')),
+                                    calories: get('calories') ? parseInt(get('calories')) : null,
+                                    protein: get('protein') ? parseFloat(get('protein')) : null,
+                                    carbs: get('carbs') ? parseFloat(get('carbs')) : null,
+                                    sugar: get('sugar') ? parseFloat(get('sugar')) : null,
+                                  });
+                                }
+                                setCsvDishes(parsed);
+                              } catch (err: any) {
+                                setCsvError(err.message || 'Failed to parse CSV');
+                                setCsvDishes([]);
+                              } finally {
+                                setIsParsingCsv(false);
+                                // reset input to allow re-uploading same file
+                                e.currentTarget.value = '';
+                              }
+                            }}
+                          />
+                          <Button type="button" variant="outline" onClick={() => (document.getElementById('csvInput') as HTMLInputElement)?.click()} data-testid="button-import-csv">
+                            Import CSV
+                          </Button>
+                          {isParsingCsv && <span className="text-xs text-muted-foreground">Parsing...</span>}
+                        </div>
+                        {csvError && (
+                          <div className="text-xs text-red-600">{csvError}</div>
+                        )}
+                        {csvDishes.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="p-3 bg-muted rounded text-sm flex items-center justify-between">
+                              <span>Found {csvDishes.length} dishes in CSV</span>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  onClick={() => bulkAddDishesMutation.mutate(csvDishes)}
+                                  disabled={bulkAddDishesMutation.isPending}
+                                  data-testid="button-add-csv-dishes"
+                                >
+                                  {bulkAddDishesMutation.isPending ? 'Adding...' : 'Add All'}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => setCsvDishes([])}
+                                >
+                                  Clear
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto text-xs">
+                              {csvDishes.map((d, i) => (
+                                <div key={i} className="grid grid-cols-5 gap-2 py-1 border-b last:border-b-0">
+                                  <span className="font-medium truncate" title={d.name}>{d.name}</span>
+                                  <span className="truncate" title={d.category}>{d.category}</span>
+                                  <span>₹{d.price}</span>
+                                  <span>{d.isVeg ? 'Veg' : 'Non-Veg'}</span>
+                                  <span>{d.isAvailable ? 'Available' : 'Hidden'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
