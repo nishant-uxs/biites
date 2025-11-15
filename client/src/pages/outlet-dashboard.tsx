@@ -562,16 +562,16 @@ export default function OutletDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b">
-        <div className="flex h-16 items-center px-4">
+      <div className="border-b bg-card">
+        <div className="flex flex-col gap-3 md:flex-row md:h-16 md:items-center px-4 py-3">
           <div className="flex items-center gap-3">
             <Store className="w-6 h-6 text-primary" />
             <div>
-              <h1 className="text-xl font-bold">{outlet?.name || "Outlet Dashboard"}</h1>
-              <p className="text-xs text-muted-foreground">{outlet?.description}</p>
+              <h1 className="text-xl font-bold leading-tight">{outlet?.name || "Outlet Dashboard"}</h1>
+              <p className="text-xs text-muted-foreground line-clamp-1">{outlet?.description}</p>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-0 md:ml-auto w-full md:w-auto flex items-center justify-between md:justify-end gap-2">
             {outlet?.isChillPeriod && outlet?.chillPeriodEndsAt && (
               <ChillPeriodTimer endsAt={new Date(outlet.chillPeriodEndsAt)} />
             )}
@@ -1315,6 +1315,14 @@ export default function OutletDashboard() {
           </DialogHeader>
           {(() => {
             const match = orders.find(o => scannedQr && o.qrCode === scannedQr);
+            const orderId = match?.id;
+            // Fetch items only when dialog is open and we have an orderId
+            const { data: items = [] } = useQuery<any[]>({
+              queryKey: orderId ? ["/api/orders", orderId, "items"] : [],
+              enabled: !!orderId && showScanConfirm,
+            });
+            const upfront = match ? Math.round(match.totalAmount * 0.4) : 0;
+            const remaining = match ? Math.max(match.totalAmount - upfront, 0) : 0;
             return (
               <div className="space-y-3">
                 {match ? (
@@ -1328,15 +1336,31 @@ export default function OutletDashboard() {
                       <span className="font-semibold">₹{match.totalAmount}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Payment</span>
-                      <span className="font-medium uppercase">{match.paymentMethod}</span>
+                      <span className="text-sm text-muted-foreground">Paid (40%)</span>
+                      <span className="font-medium">₹{upfront}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span className="text-sm">Remaining</span>
+                      <span className="font-medium">₹{remaining}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Placed</span>
                       <span className="font-medium">{match.createdAt ? new Date(match.createdAt).toLocaleString('en-IN') : 'N/A'}</span>
                     </div>
-                    <div className="p-3 bg-muted rounded-md text-xs text-muted-foreground">
-                      Dish list will appear on the user's app; confirm only after handing over the items.
+                    <div className="pt-2">
+                      <p className="text-sm font-medium mb-1">Dishes</p>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {items.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Loading items...</p>
+                        ) : (
+                          items.map((it) => (
+                            <div key={it.id} className="flex items-center justify-between text-sm p-2 bg-muted/50 rounded">
+                              <span className="truncate">{it.name} × {it.quantity}</span>
+                              <span className="font-medium">₹{it.price * it.quantity}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                       <Button variant="outline" onClick={() => { setShowScanConfirm(false); setScannedQr(null); }}>Cancel</Button>

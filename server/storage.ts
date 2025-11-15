@@ -72,6 +72,7 @@ export interface IStorage {
   getUserOrders(userId: string): Promise<Order[]>;
   getOutletOrders(outletId: string): Promise<Order[]>;
   updateOrderStatus(id: string, status: string): Promise<void>;
+  getOrderItemsWithDish(orderId: string): Promise<Array<{ id: string; dishId: string; name: string; quantity: number; price: number }>>;
   
   // Group Order operations
   createGroupOrder(groupOrder: InsertGroupOrder): Promise<GroupOrder>;
@@ -127,6 +128,21 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
+  }
+
+  async getOrderItemsWithDish(orderId: string): Promise<Array<{ id: string; dishId: string; name: string; quantity: number; price: number }>> {
+    const rows = await db
+      .select({
+        id: orderItems.id,
+        dishId: orderItems.dishId,
+        quantity: orderItems.quantity,
+        price: orderItems.price,
+        name: dishes.name,
+      })
+      .from(orderItems)
+      .innerJoin(dishes, eq(orderItems.dishId, dishes.id))
+      .where(eq(orderItems.orderId, orderId));
+    return rows.map(r => ({ id: r.id, dishId: r.dishId, name: r.name, quantity: r.quantity, price: r.price }));
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {

@@ -91,6 +91,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get order items with dish details (outlet owner only)
+  app.get('/api/orders/:id/items', isAuthenticated, isOutletOwner, async (req: any, res) => {
+    try {
+      const orderId = req.params.id;
+      const order = await storage.getOrder(orderId);
+      if (!order) return res.status(404).json({ message: 'Order not found' });
+
+      // Ensure requester owns the outlet for this order (unless app_admin handled by isOutletOwner)
+      const outlet = await storage.getOutlet(order.outletId);
+      if (!outlet || (req.user.role !== 'app_admin' && outlet.ownerId !== req.user.id)) {
+        return res.status(403).json({ message: 'Not authorized to view items for this order' });
+      }
+
+      const items = await storage.getOrderItemsWithDish(orderId);
+      res.json(items);
+    } catch (error) {
+      console.error('Error fetching order items:', error);
+      res.status(500).json({ message: 'Failed to fetch order items' });
+    }
+  });
+
   // Reset outlet owner password (university admin or app admin)
   app.patch('/api/outlets/:id/owner/reset-password', isAuthenticated, isUniversityAdmin, async (req: any, res) => {
     try {

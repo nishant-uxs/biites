@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { DishCard } from "@/components/dish-card";
-import { ArrowLeft, ShoppingCart, Star, Clock } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Star, Clock, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Outlet, Dish } from "@shared/schema";
@@ -77,6 +77,14 @@ export default function OutletDetail() {
   });
 
   const addToCart = (dish: Dish) => {
+    if (outlet?.isChillPeriod) {
+      toast({
+        title: "Outlet is in Chill Period",
+        description: "Ordering is temporarily paused. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
     const existing = cart.find(item => item.dish.id === dish.id);
     if (existing) {
       setCart(cart.map(item =>
@@ -110,6 +118,13 @@ export default function OutletDetail() {
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handlePlaceOrder = () => {
+    if (outlet?.isChillPeriod) {
+      toast({
+        title: "Chill Period Active",
+        description: "This outlet is temporarily paused. You cannot place orders right now.",
+        variant: "destructive",
+      });
+    }
     if (cart.length === 0) return;
 
     createOrderMutation.mutate({
@@ -126,6 +141,14 @@ export default function OutletDetail() {
   };
 
   const handleOpenPayment = () => {
+    if (outlet?.isChillPeriod) {
+      toast({
+        title: "Chill Period Active",
+        description: "Ordering is paused during the chill period.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (cart.length === 0) return;
     setShowPaymentDialog(true);
   };
@@ -186,6 +209,18 @@ export default function OutletDetail() {
             </Button>
           )}
         </div>
+        {/* Chill period banner */}
+        {outlet?.isChillPeriod && outlet?.chillPeriodEndsAt && (
+          <div className="bg-destructive/10 border-y border-destructive">
+            <div className="container mx-auto px-4 py-2 max-w-7xl flex items-center gap-2 text-destructive text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span className="font-medium">Chill Period Active</span>
+              <span className="ml-auto">
+                Ends at {new Date(outlet.chillPeriodEndsAt).toLocaleTimeString('en-IN')}
+              </span>
+            </div>
+          </div>
+        )}
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
@@ -216,7 +251,7 @@ export default function OutletDetail() {
                   {outlet.isChillPeriod && (
                     <Badge variant="outline">
                       <Clock className="w-3 h-3 mr-1" />
-                      Chill Period
+                      Chill Period Active
                     </Badge>
                   )}
                 </div>
@@ -301,10 +336,10 @@ export default function OutletDetail() {
                 className="w-full"
                 size="lg"
                 onClick={handleOpenPayment}
-                disabled={createOrderMutation.isPending}
+                disabled={createOrderMutation.isPending || !!outlet?.isChillPeriod}
                 data-testid="button-place-order"
               >
-                {createOrderMutation.isPending ? "Placing Order..." : "Place Order"}
+                {createOrderMutation.isPending ? "Placing Order..." : outlet?.isChillPeriod ? "Chill Period Active" : "Place Order"}
               </Button>
             </CardContent>
           </Card>
