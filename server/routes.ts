@@ -796,6 +796,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const { items, specialInstructions, totalAmount, outletId, groupOrderId } = req.body;
       
+      // Enforce outlet chill period: prevent new orders while active
+      const outlet = await storage.getOutlet(outletId);
+      if (!outlet) {
+        return res.status(404).json({ message: "Outlet not found" });
+      }
+      if (outlet.isChillPeriod) {
+        const now = new Date();
+        const endsAt = outlet.chillPeriodEndsAt ? new Date(outlet.chillPeriodEndsAt) : null;
+        if (!endsAt || now < endsAt) {
+          return res.status(403).json({ 
+            message: "Ordering is paused due to chill period",
+            chillPeriodEndsAt: outlet.chillPeriodEndsAt,
+          });
+        }
+      }
+      
       const order = await storage.createOrder(
         {
           userId,
