@@ -1359,12 +1359,6 @@ export default function OutletDashboard() {
         </DialogContent>
       </Dialog>
 
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Chill Period Dialog */}
       <Dialog open={isChillDialogOpen} onOpenChange={setIsChillDialogOpen}>
         <DialogContent>
