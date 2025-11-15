@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Store, Plus, Edit, Trash2, Clock, Package, TrendingUp, Coffee, Soup, Pizza, Settings, Power, AlertCircle, ChefHat, DollarSign, Leaf, Upload, Loader2, Bell, CheckCircle, X, Check, ScanLine, LogOut } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,8 +91,7 @@ function ChillPeriodTimer({ endsAt }: { endsAt: Date }) {
 }
 
 // OrderCard component for displaying individual orders with actions
-function OrderCard({ order }: { order: Order }) {
-  const [showQR, setShowQR] = useState(false);
+function OrderCard({ order, onRequestScan }: { order: Order; onRequestScan?: () => void }) {
   
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
@@ -212,38 +210,16 @@ function OrderCard({ order }: { order: Order }) {
             <>
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => setShowQR(!showQR)}
-                data-testid={`button-show-qr-${order.id}`}
+                onClick={() => onRequestScan?.()}
+                data-testid={`button-scan-complete-${order.id}`}
               >
                 <Package className="w-4 h-4 mr-1" />
-                {showQR ? 'Hide' : 'Show'} QR Code
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => updateStatusMutation.mutate('completed')}
-                disabled={updateStatusMutation.isPending}
-                data-testid={`button-complete-${order.id}`}
-              >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Mark Completed
+                Scan Customer QR
               </Button>
             </>
           )}
         </div>
         
-        {/* QR Code Display */}
-        {showQR && order.status === 'ready' && (
-          <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg border text-center">
-            <p className="text-sm font-medium mb-2">Pickup Verification QR Code</p>
-            <div className="inline-block p-3 bg-white rounded">
-              <QRCodeSVG value={order.qrCode} size={150} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Ask customer to scan this QR code for pickup verification
-            </p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -271,6 +247,8 @@ export default function OutletDashboard() {
   
   // QR Scanner state
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [scannedQr, setScannedQr] = useState<string | null>(null);
+  const [showScanConfirm, setShowScanConfirm] = useState(false);
 
   const form = useForm<DishFormValues>({
     resolver: zodResolver(dishSchema),
@@ -418,6 +396,8 @@ export default function OutletDashboard() {
         description: `Order completed successfully`,
       });
       setIsQRScannerOpen(false);
+      setShowScanConfirm(false);
+      setScannedQr(null);
     },
     onError: (error: Error) => {
       toast({
@@ -430,7 +410,8 @@ export default function OutletDashboard() {
 
   // Handle QR scan from camera
   const handleQRScan = (qrCode: string) => {
-    scanQRMutation.mutate(qrCode);
+    setScannedQr(qrCode);
+    setShowScanConfirm(true);
   };
 
   // Toggle outlet chill period
@@ -573,10 +554,11 @@ export default function OutletDashboard() {
   };
 
   // Calculate statistics
-  const activeOrders = orders.filter(o => o.status === "placed" || o.status === "preparing").length;
+  const activeOrders = orders.filter(o => o.status !== "completed" && o.status !== "cancelled").length;
   const todaysRevenue = orders
     .filter(o => o.createdAt && new Date(o.createdAt).toDateString() === new Date().toDateString())
     .reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -632,7 +614,7 @@ export default function OutletDashboard() {
 
       <div className="p-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <div className="grid gap-4 md:grid-cols-5 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Orders</CardTitle>
@@ -674,6 +656,17 @@ export default function OutletDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">₹{outlet?.averagePrice || 0}</div>
               <p className="text-xs text-muted-foreground">Per dish</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{totalRevenue}</div>
+              <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
         </div>
@@ -1226,7 +1219,7 @@ export default function OutletDashboard() {
                 <CardContent>
                   <div className="space-y-3">
                     {orders.filter(o => o.status === 'confirmed').map((order) => (
-                      <OrderCard key={order.id} order={order} />
+                      <OrderCard key={order.id} order={order} onRequestScan={() => setIsQRScannerOpen(true)} />
                     ))}
                   </div>
                 </CardContent>
@@ -1246,7 +1239,7 @@ export default function OutletDashboard() {
                 <CardContent>
                   <div className="space-y-3">
                     {orders.filter(o => o.status === 'preparing').map((order) => (
-                      <OrderCard key={order.id} order={order} />
+                      <OrderCard key={order.id} order={order} onRequestScan={() => setIsQRScannerOpen(true)} />
                     ))}
                   </div>
                 </CardContent>
@@ -1266,7 +1259,7 @@ export default function OutletDashboard() {
                 <CardContent>
                   <div className="space-y-3">
                     {orders.filter(o => o.status === 'ready').map((order) => (
-                      <OrderCard key={order.id} order={order} />
+                      <OrderCard key={order.id} order={order} onRequestScan={() => setIsQRScannerOpen(true)} />
                     ))}
                   </div>
                 </CardContent>
@@ -1304,22 +1297,68 @@ export default function OutletDashboard() {
 
       {/* QR Scanner Dialog */}
       <Dialog open={isQRScannerOpen} onOpenChange={setIsQRScannerOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Scan Student QR Code</DialogTitle>
-            <DialogDescription>
-              Point camera at student's phone to scan their order QR code
-            </DialogDescription>
+            <DialogTitle>Scan Customer QR</DialogTitle>
+            <DialogDescription>Use your camera to scan the student's pickup QR code.</DialogDescription>
           </DialogHeader>
-          <div className="pt-4">
-            <QRScanner 
-              onScan={handleQRScan}
-              onError={(error) => {
-                toast({
-                  title: "Camera Error",
-                  description: error,
-                  variant: "destructive",
-                });
+          <QRScanner onScan={handleQRScan} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Scan Confirmation Dialog */}
+      <Dialog open={showScanConfirm} onOpenChange={setShowScanConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Order Pickup</DialogTitle>
+            <DialogDescription>Verify the order details before marking it as completed.</DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const match = orders.find(o => scannedQr && o.qrCode === scannedQr);
+            return (
+              <div className="space-y-3">
+                {match ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Order</span>
+                      <span className="font-medium">#{match.id.slice(-6)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Amount</span>
+                      <span className="font-semibold">₹{match.totalAmount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Payment</span>
+                      <span className="font-medium uppercase">{match.paymentMethod}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Placed</span>
+                      <span className="font-medium">{match.createdAt ? new Date(match.createdAt).toLocaleString('en-IN') : 'N/A'}</span>
+                    </div>
+                    <div className="p-3 bg-muted rounded-md text-xs text-muted-foreground">
+                      Dish list will appear on the user's app; confirm only after handing over the items.
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button variant="outline" onClick={() => { setShowScanConfirm(false); setScannedQr(null); }}>Cancel</Button>
+                      <Button onClick={() => scannedQr && scanQRMutation.mutate(scannedQr)} disabled={scanQRMutation.isPending}>
+                        {scanQRMutation.isPending ? 'Confirming...' : 'Confirm Pickup'}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">No matching order found for this QR. Please rescan.</p>
+                    <div className="flex justify-end">
+                      <Button variant="outline" onClick={() => { setShowScanConfirm(false); setScannedQr(null); setIsQRScannerOpen(true); }}>Rescan</Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
               }}
             />
           </div>
